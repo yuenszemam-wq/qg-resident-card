@@ -60,6 +60,7 @@ def verify(browser):
         save.click()
     assert png.value.suggested_filename == "QG-Calendar-2026-06.png"
     expect(page.locator("#qg-progress-calendar progress")).to_have_js_property("value",100)
+    print("CAL_HISTORY_DIAG",page.evaluate("""async () => ({active:!!window.qgWorkflow, status:document.querySelector("#tab-calendar .qg-hist-status")?.textContent, count:document.querySelectorAll("#tab-calendar .qg-hist-row").length, indexedDB:!!window.indexedDB, errors:[]})"""))
     expect(page.locator("#tab-calendar .qg-hist-load").first).to_be_visible()
     exported = png.value.path().read_bytes()
     assert struct.unpack(">II",exported[16:24]) == (1080,1350)
