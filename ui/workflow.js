@@ -1,7 +1,7 @@
 /* QG local export history and visible progress — no remote storage or new Cloudflare resource. */
 (() => {
 'use strict';
-const MAX=10, dbName='qg-card-history-v1', storeName='records';
+const MAX=10, dbName='qg-card-history-v1', storeName='records', calendarKey='qg.calendar.recent.v1';
 const $=id=>document.getElementById(id);
 let dbPromise;
 function db(){
@@ -76,6 +76,17 @@ function fail(template,message){finish(template,false,message||'處理失敗');}
 async function record(template,data,canvas,photo){
   if(!names[template])return;
   try{
+    // The calendar has no uploaded photo: keep its compact ten-entry history
+    // synchronously in localStorage, including a small thumbnail, so export
+    // and iPhone share-sheet navigation cannot interrupt IndexedDB writes.
+    if(template==='calendar'){
+      const miniature=document.createElement('canvas');miniature.width=176;miniature.height=220;
+      if(canvas)miniature.getContext('2d').drawImage(canvas,0,0,176,220);
+      const item={id:'calendar:'+Date.now()+':'+Math.random().toString(36).slice(2,7),template,ts:Date.now(),data:JSON.parse(JSON.stringify(data)),thumbUrl:canvas?miniature.toDataURL('image/jpeg',.73):null};
+      const saved=JSON.parse(localStorage.getItem(calendarKey)||'[]');
+      saved.unshift(item);localStorage.setItem(calendarKey,JSON.stringify(saved.slice(0,MAX)));
+      await display('calendar');return;
+    }
     const entry={id:template+':'+Date.now()+':'+Math.random().toString(36).slice(2,8),template,ts:Date.now(),
       data:typeof structuredClone==='function'?structuredClone(data):JSON.parse(JSON.stringify(data)),
       thumb:await thumb(canvas),photo:await asBlob(photo,'image/jpeg',.9)};
@@ -146,7 +157,7 @@ async function display(template){
   const panel=containers[template];if(!panel)return;
   const list=panel.querySelector('.qg-hist-list');
   try{
-    const entries=(await all()).filter(e=>e.template===template).sort((a,b)=>b.ts-a.ts).slice(0,MAX);
+    const entries=(template==='calendar'?JSON.parse(localStorage.getItem(calendarKey)||'[]'):(await all()).filter(e=>e.template===template)).sort((a,b)=>b.ts-a.ts).slice(0,MAX);
     for(const u of urls.get(template)||[])URL.revokeObjectURL(u);
     const fresh=[];urls.set(template,fresh);
     list.replaceChildren();
@@ -154,7 +165,7 @@ async function display(template){
     for(const entry of entries){
       const row=document.createElement('div');row.className='qg-hist-row';
       const load=document.createElement('button');load.type='button';load.className='qg-hist-load';
-      if(entry.thumb){const img=document.createElement('img');const u=URL.createObjectURL(entry.thumb);fresh.push(u);img.src=u;img.alt='';load.append(img);}
+      if(entry.thumb||entry.thumbUrl){const img=document.createElement('img');if(entry.thumb){const u=URL.createObjectURL(entry.thumb);fresh.push(u);img.src=u;}else img.src=entry.thumbUrl;img.alt='';load.append(img);}
       const meta=document.createElement('span');meta.className='qg-hist-meta';
       const title=document.createElement('strong');title.textContent=entry.template==='calendar'?entry.data.year+'-'+String(entry.data.month).padStart(2,'0'):(entry.data.name||'未命名');
       const when=document.createElement('small');when.textContent=new Date(entry.ts).toLocaleString('zh-HK',{dateStyle:'short',timeStyle:'short'});
@@ -164,7 +175,11 @@ async function display(template){
       del.onclick=async()=>{
         // Confirmation protects against accidental deletion on narrow screens.
         if(!confirm('刪除這筆本機記錄？'))return;
-        try{await transaction('readwrite',s=>s.delete(entry.id));await display(template);}catch{status(template,'刪除失敗');}
+        try{if(template==='calendar'){
+          const values=JSON.parse(localStorage.getItem(calendarKey)||'[]').filter(x=>x.id!==entry.id);
+          localStorage.setItem(calendarKey,JSON.stringify(values));
+        }else await transaction('readwrite',s=>s.delete(entry.id));
+        await display(template);}catch{status(template,'刪除失敗');}
       };
       row.append(load,del);list.append(row);
     }
