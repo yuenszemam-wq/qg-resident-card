@@ -56,6 +56,10 @@ def verify(browser):
     with page.expect_download() as backup:
         page.locator("#cal-export").click()
     assert json.loads(backup.value.path().read_bytes())["months"] == {"2026-06":[1,3],"2028-02":[29]}
+    # Independent history writer diagnostic before download.
+    page.evaluate("""async () => await window.qgWorkflow.record('calendar',{year:'2026',month:'6',days:[1]},document.getElementById('cal-preview'))""")
+    print("CAL_BEFORE_DOWNLOAD",page.locator("#tab-calendar .qg-hist-list").inner_text())
+    page.on("framenavigated",lambda frame: print("CAL_NAV",frame.url))
     with page.expect_download() as png:
         save.click()
     assert png.value.suggested_filename == "QG-Calendar-2026-06.png"
@@ -65,8 +69,6 @@ def verify(browser):
       const items = await new Promise((resolve,reject)=>{const tx=db.transaction('records','readonly'),r=tx.objectStore('records').getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
       return {active:!!window.qgWorkflow,status:document.querySelector("#tab-calendar .qg-hist-status")?.textContent,count:document.querySelectorAll("#tab-calendar .qg-hist-row").length,items:items.map(x=>({id:x.id,template:x.template})),errors:[]}
     }"""))
-    page.evaluate("""async () => await window.qgWorkflow.record('calendar',{year:'2026',month:'6',days:[1]},document.getElementById('cal-preview'))""")
-    print("CAL_MANUAL_HISTORY",page.locator("#tab-calendar .qg-hist-status").inner_text())
 
     expect(page.locator("#tab-calendar .qg-hist-load").first).to_be_visible()
     exported = png.value.path().read_bytes()
