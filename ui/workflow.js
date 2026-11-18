@@ -94,7 +94,7 @@ async function record(template,data,canvas,photo){
     const entries=(await all()).filter(e=>e.template===template).sort((a,b)=>b.ts-a.ts);
     if(entries.length>MAX)await transaction('readwrite',s=>{for(const old of entries.slice(MAX))s.delete(old.id);});
     await display(template);
-  }catch(err){status(template,'未能儲存記錄：請檢查瀏覽器儲存空間');}
+  }catch(err){status(template,'未能儲存記錄：'+(err?.name||'Error')+' '+(err?.message||'請檢查儲存空間'));}
 }
 function imageFromBlob(blob){
   return new Promise((resolve,reject)=>{
