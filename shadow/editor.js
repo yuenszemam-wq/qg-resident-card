@@ -186,11 +186,11 @@
     } catch { status('相片讀取失敗，請重新選擇。'); }
     finally { URL.revokeObjectURL(url); }
   };
-  function animate(s) {
+  function animate(s,onProgress) {
     return new Promise(resolve=>{
       const begin=performance.now();
       function frame(now) {
-        const t=(now-begin)/1000; draw(t,s||details());
+        const t=(now-begin)/1000; draw(t,s||details());if(onProgress)onProgress(t);
         if (t<5) requestAnimationFrame(frame); else resolve();
       }
       requestAnimationFrame(frame);
@@ -205,7 +205,9 @@
     if (busy) return;
     const s=details();
     if (mode!=='play' && (!model.photo || !s.name || !s.ig || !s.date)) {status('請先選擇相片，並填寫名字、IG 和日期。');return;}
-    if(mode!=='play')lock(true);
+    if(mode!=='play'){
+      lock(true);window.qgWorkflow?.progress('shadow',3,'準備匯出');
+    }
     let stream, recorder;
     try {
       await start(); if (!images) return;
@@ -215,7 +217,12 @@
       if (mode==='png') {
         draw(5,s);
         const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
-        if (await saveBlob(blob,filename+'.png',status)) openPromo(s,caption(s));
+        window.qgWorkflow?.progress('shadow',85,'準備儲存圖片');
+        if (await saveBlob(blob,filename+'.png',status)){
+          window.qgWorkflow?.finish('shadow',true,'圖片已準備好');
+          openPromo(s,caption(s));
+          window.qgWorkflow?.record('shadow',{name:field('name').value,ig:field('ig').value,date:field('date').value,zoom:model.zoom,dx:model.dx,dy:model.dy,adj:model.adj,font:model.font},canvas,model.photo);
+        }else window.qgWorkflow?.fail('shadow','已取消下載');
         return;
       }
       const mime=pickMime();
@@ -226,13 +233,14 @@
       const chunks=[]; recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
       const finished=new Promise((resolve,reject)=>{recorder.onstop=resolve; recorder.onerror=()=>reject(Error('錄影中斷，請再試一次。'));});
       recorder.start(); status('錄影中…約 5 秒');
-      await Promise.all([animate(s).then(()=>{if(recorder.state==='recording')recorder.stop();}),finished]);
+      await Promise.all([animate(s,t=>window.qgWorkflow?.progress('shadow',Math.min(90,Math.round(5+85*t/5)),'正在錄製影片')).then(()=>{if(recorder.state==='recording')recorder.stop();}),finished]);
       const type=recorder.mimeType || chunks[0]?.type;
       if (!chunks.length || !type) throw Error('影片未能產生，請再試一次。');
       const ext=type.includes('mp4')?'mp4':'webm';
       pending={blob:new Blob(chunks,{type:type.split(';')[0]}),filename:filename+'.'+ext,s};
       field('save').hidden=false; status('影片已準備好（'+ext.toUpperCase()+'）');
-    } catch(err) { status(err.message || '匯出失敗，請再試一次。'); }
+      window.qgWorkflow?.progress('shadow',95,'影片已錄好，請儲存');
+    } catch(err) { status(err.message || '匯出失敗，請再試一次。');if(mode!=='play')window.qgWorkflow?.fail('shadow','匯出失敗'); }
     finally { stream?.getTracks().forEach(track=>track.stop()); if(mode!=='play')lock(false); draw(); }
   }
   field('play').onclick=()=>run('play');
@@ -241,7 +249,11 @@
   field('video').onclick=()=>run('video');
   field('save').onclick=async()=>{
     const v=pending;
-    if(v && await saveBlob(v.blob,v.filename,status)) openPromo(v.s,caption(v.s));
+    if(v && await saveBlob(v.blob,v.filename,status)){
+      window.qgWorkflow?.finish('shadow',true,'影片已儲存');
+      openPromo(v.s,caption(v.s));
+      window.qgWorkflow?.record('shadow',{name:field('name').value,ig:field('ig').value,date:field('date').value,zoom:model.zoom,dx:model.dx,dy:model.dy,adj:model.adj,font:model.font},canvas,model.photo);
+    }else window.qgWorkflow?.fail('shadow','已取消儲存');
   };
   window.qgShadow={start,draw,busy:()=>busy,model,redraw,refreshControls,saveLayout:layout.save};
   if(!panel.hidden) start();
