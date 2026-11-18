@@ -4,7 +4,7 @@ on:
     paths:
       - 'index.html'
       - 'calendar/**'
-      - '.github/tests/calendar.py'
+      - '.github/tests/test_qg_calendar.py'
       - '.github/workflows/calendar.yml'
 permissions:
   contents: read
@@ -26,4 +26,4 @@ jobs:
         run: |
           python -m http.server 8050 --bind 127.0.0.1 >/tmp/qg-server.log 2>&1 &
           for attempt in {1..30}; do curl -fsS -o /dev/null http://127.0.0.1:8050/ && break; sleep 1; done
-          python .github/tests/calendar.py ${{ matrix.browser }}
+          python .github/tests/test_qg_calendar.py ${{ matrix.browser }}

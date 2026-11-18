@@ -62,8 +62,16 @@ def verify(browser):
     exported = png.value.path().read_bytes()
     assert struct.unpack(">II",exported[16:24]) == (1080,1350)
     import base64
-    preview = page.locator("#cal-preview").evaluate("c => c.toDataURL().split(',')[1]")
-    assert base64.b64decode(preview) == exported
+    assert page.locator("#cal-preview").evaluate("""async (canvas, png) => {
+        const image = new Image();
+        image.src = 'data:image/png;base64,' + png;
+        await image.decode();
+        const copy = document.createElement('canvas');
+        copy.width = canvas.width;
+        copy.height = canvas.height;
+        copy.getContext('2d').drawImage(image, 0, 0);
+        return copy.toDataURL() === canvas.toDataURL();
+    }""", base64.b64encode(exported).decode())
     page.locator("#tabBtnPromo").click()
     page.locator("#photo").set_input_files(ROOT / "calendar/icon.png")
     page.locator("#name").fill("幽月")
