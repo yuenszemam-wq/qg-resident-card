@@ -111,6 +111,8 @@
   }
   function crop() { sliders('crop',[['zoom','縮放',1,3,.01],['dx','左右',-100,100],['dy','上下',-100,100]],model); }
   function adjust() { sliders('adjust',[['dx','左右',-200,200],['dy','上下',-120,120],['size','大小',-18,40]],adj[field('target').value]); }
+  function refreshControls(){ crop(); adjust(); }
+  function redraw(){if (!busy) draw(5);}
   crop(); adjust(); field('target').onchange=adjust;
   field('form').oninput=invalidate;
   field('photo').onchange=async e=>{
@@ -177,10 +179,11 @@
   field('play').onclick=()=>run('play');
   field('png').onclick=()=>run('png');
   field('form').onsubmit=e=>{e.preventDefault();run('video');};
+  field('video').onclick=()=>run('video');
   field('save').onclick=async()=>{
     const v=pending;
     if(v && await saveBlob(v.blob,v.filename,status)) openPromo(v.s,caption(v.s));
   };
-  window.qgShadow={start,busy:()=>busy};
+  window.qgShadow={start,busy:()=>busy,model,redraw,refreshControls,saveLayout:layout.save};
   if(!panel.hidden) start();
 })();
