@@ -187,7 +187,7 @@ if(promo&&$('tab-promo')){
   if(oldDetails){oldDetails.hidden=true;oldDetails.classList.add('qg-legacy-controls');}
   const photo=modal('promoPhotoEditor','限定居民宣傳｜相片調整',preview,()=>{$('play')?.click()});
   all.push(photo);
-  const update=()=>{promo.clampPos();promo.render(0,true)};
+  const update=()=>{promo.clampPos();promo.render(0,true);promo.saveLayout?.()};
   photoControls(photo,$('photo'),promo.state,update,()=>{
     promo.state.zoom=1;promo.state.dx=0;promo.state.dy=0;const z=$('zoom');if(z)z.value=1;
   });
