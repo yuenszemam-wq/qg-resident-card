@@ -43,6 +43,17 @@
   .row{display:flex;gap:10px}
   .row>div{flex:1}
   .dateout{font-size:12px;color:var(--gold);margin-top:5px;min-height:1em}
+  details.adj{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:0 14px;margin-top:14px}
+  details.adj summary{cursor:pointer;padding:13px 0;font-size:15px;color:var(--text);list-style:none}
+  details.adj summary::-webkit-details-marker{display:none}
+  details.adj summary::after{content:"▾";float:right;color:var(--muted)}
+  details.adj[open] summary::after{content:"▴"}
+  .adj-group{border-top:1px solid var(--line);padding:10px 0 12px}
+  .adj-head{display:flex;align-items:center;justify-content:space-between;font-size:14px;color:var(--gold);margin-bottom:4px}
+  .adj-row{display:grid;grid-template-columns:3.2em 1fr 3em;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-top:6px}
+  .adj-row input{width:100%;accent-color:var(--accent)}
+  .adj-row output{text-align:right;font-variant-numeric:tabular-nums;color:var(--text)}
+  .adj-foot{border-top:1px solid var(--line);padding:12px 0 14px;text-align:center}
   .file{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:10px;
     border:1.5px dashed var(--accent);color:var(--text);font-size:16px;cursor:pointer;background:#1a1226}
   .file input{display:none}
@@ -120,6 +131,12 @@
     <div class="dateout" id="dateout"></div>
   </div>
 
+  <details class="adj" id="adjBox">
+    <summary>5. 文字微調（字距、位置）</summary>
+    <div id="adjGroups"></div>
+    <div class="adj-foot"><button class="small" id="adjResetAll">全部重設</button></div>
+  </details>
+
   <div class="btns">
     <button class="btn full" id="play">▶ 預覽動畫</button>
     <button class="btn primary" id="png">下載圖片 PNG</button>
@@ -193,6 +210,8 @@ const state = {
   photo:null, blur:null,
   zoom:1, dx:0, dy:0,
   name:'', ig:'', date:'',
+  // 文字微調（單位：卡片像素；0 = 原本設定）
+  adj:{ name:{sp:0,dx:0,dy:0}, ig:{sp:0,dx:0,dy:0}, date:{sp:0,dx:0,dy:0} },
 };
 
 // ---------- 工具 ----------
@@ -328,20 +347,23 @@ function render(t, final=false){
   if(state.name){
     ctx.save();
     const s = nm>0 ? 0.85+0.15*easeBack(nm) : 0.85;
-    ctx.translate(W/2, 1009 + bob(0.9)); ctx.scale(s,s); ctx.translate(-W/2,-1009);
-    outlinedText(state.name, W/2, 1009, {font:nameFontSize([...state.name].length)+'px '+FONT_NAME, fill:WARM_WHITE, stroke:30, bold:0.065, alpha:easeOut(nm), maxWidth:760});
+    const an = state.adj.name, nx = W/2 + an.dx, ny = 1009 + an.dy;
+    ctx.translate(nx, ny + bob(0.9)); ctx.scale(s,s); ctx.translate(-nx,-ny);
+    outlinedText(state.name, nx, ny, {font:nameFontSize([...state.name].length)+'px '+FONT_NAME, fill:WARM_WHITE, stroke:30, bold:0.065, spacing:an.sp, alpha:easeOut(nm), maxWidth:760});
     ctx.restore();
   }
 
   // IG
   const ig = easeOut(prog(t,0.9,0.3));
-  outlinedText(state.ig, W/2, 1100 + 10*(1-ig) + bob(1.8), {font:'400 54px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.02, alpha:ig, maxWidth:820});
+  const ai = state.adj.ig;
+  outlinedText(state.ig, W/2 + ai.dx, 1100 + ai.dy + 10*(1-ig) + bob(1.8), {font:'400 54px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.02, spacing:ai.sp, alpha:ig, maxWidth:820});
 
   // Queen's Garden（逐字）
   drawSliced('qg', bob(2.7), typeA(1.0,0.08), typeY(1.0,0.08,24));
 
   // 日期（逐字）
-  outlinedText(state.date, W/2, 1270 + bob(3.6), {font:'400 58px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.03, spacing:1, maxWidth:700,
+  const ad = state.adj.date;
+  outlinedText(state.date, W/2 + ad.dx, 1270 + ad.dy + bob(3.6), {font:'400 58px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.03, spacing:1 + ad.sp, maxWidth:700,
     charAlpha:typeA(1.25,0.1), charDy:typeY(1.25,0.1,24)});
 }
 
@@ -391,6 +413,36 @@ function ensureFonts(){
   fontPromise = Promise.race([loads, new Promise(r=>setTimeout(r,6000))]);
   return fontPromise;
 }
+
+// ---------- 文字微調 ----------
+const ADJ_ITEMS = [['name','名字'],['ig','IG'],['date','日期']];
+const ADJ_FIELDS = [['sp','字距',-20,60],['dx','左右',-200,200],['dy','上下',-120,120]];
+function buildAdj(){
+  const box = $('adjGroups');
+  ADJ_ITEMS.forEach(([k,label])=>{
+    const g = document.createElement('div'); g.className = 'adj-group';
+    g.innerHTML = `<div class="adj-head"><span>${label}</span><button class="small" data-reset="${k}">重設</button></div>` +
+      ADJ_FIELDS.map(([f,fl,mn,mx])=>`<label class="adj-row"><span>${fl}</span><input type="range" min="${mn}" max="${mx}" step="1" value="0" data-k="${k}" data-f="${f}" aria-label="${label}${fl}"><output id="o_${k}_${f}">0</output></label>`).join('');
+    box.appendChild(g);
+  });
+  box.addEventListener('input', e=>{
+    const t = e.target; if(!t.dataset || !t.dataset.k) return;
+    state.adj[t.dataset.k][t.dataset.f] = +t.value;
+    $('o_'+t.dataset.k+'_'+t.dataset.f).textContent = t.value;
+    if(!playing) render(0,true);
+  });
+  box.addEventListener('click', e=>{ const k = e.target.dataset && e.target.dataset.reset; if(k) resetAdj([k]); });
+  $('adjResetAll').addEventListener('click', ()=>resetAdj(ADJ_ITEMS.map(i=>i[0])));
+}
+function resetAdj(keys){
+  keys.forEach(k=>ADJ_FIELDS.forEach(([f])=>{
+    state.adj[k][f] = 0;
+    const el = document.querySelector(`#adjGroups input[data-k="${k}"][data-f="${f}"]`); if(el) el.value = 0;
+    $('o_'+k+'_'+f).textContent = '0';
+  }));
+  if(!playing) render(0,true);
+}
+buildAdj();
 
 // 相片
 $('photo').addEventListener('change', e=>{
