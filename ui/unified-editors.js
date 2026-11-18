@@ -213,6 +213,8 @@ if(promo&&$('tab-promo')){
 const wk=$('wkEd');
 if(wk){
   // Weekly already has a play button; photo editor retains its enlarge control.
+  const done=$('wkEdDone'),exit=btn('✕ 退出','wkEdExit','ed-done');
+  if(done){done.after(exit);exit.onclick=()=>done.click();}
   const seg=$('wkEdSeg'),zoom=$('wkEdZoom');
   const updateZoom=()=>{if(zoom){const text=seg?.querySelector('[data-m=text]')?.classList.contains('on');zoom.hidden=Boolean(text);}};
   seg?.addEventListener('click',()=>requestAnimationFrame(updateZoom));
