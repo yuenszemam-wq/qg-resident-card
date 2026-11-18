@@ -155,6 +155,36 @@
   .wk-nav{display:flex;gap:10px;margin-top:12px}
   .wk-nav .small{flex:1;padding:10px 6px;font-size:14px}
   .dateout.warn{color:#f0a0a0}
+  /* 每週更表：細預覽 + 控制（唔使捲動就填到） */
+  .wk-h1{font-size:19px;margin:0 0 10px}
+  .wk-top{display:flex;gap:12px;align-items:flex-start}
+  .wk-thumb{position:relative;flex:none;width:44%;max-width:230px;padding:0;border-radius:12px;overflow:hidden;
+    border:1px solid var(--line);background:#000;cursor:zoom-in;display:block}
+  .wk-thumb canvas{width:100%;height:auto}
+  .wk-thumb .zoomtag{position:absolute;right:6px;bottom:6px;background:rgba(0,0,0,.62);color:#fff;font-size:11px;
+    padding:3px 8px;border-radius:999px;pointer-events:none}
+  .wk-thumb .rec{top:6px;right:6px;font-size:11px}
+  .wk-side{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+  .wk-side .file{padding:11px 8px;font-size:15px}
+  .wk-side .adj-open{padding:10px;font-size:15px;gap:8px}
+  .wk-side .btn{padding:11px 8px;font-size:15px}
+  .wk-side .adj-sum{margin-top:0;line-height:1.45}
+  .wk-panel{margin-top:12px;padding:12px}
+  .wk-nav{margin-top:10px}
+  .wk-btns{margin-top:12px}
+  .seg.two{grid-template-columns:1fr 1fr}
+  .wk-file2{display:flex;align-items:center;justify-content:center;margin:0;color:var(--muted)}
+  #wkPv{display:block;border-radius:10px;border:1px solid var(--line);background:#000;touch-action:none}
+  .wk-hist{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+  .wk-hi{position:relative}
+  .wk-hi>button.go{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;
+    background:#120c1a;color:var(--text);cursor:pointer;text-align:center}
+  .wk-hi img{display:block;width:100%;aspect-ratio:1012/1350;object-fit:cover;background:#000}
+  .wk-hi .d{display:block;font-size:11px;padding:5px 2px 2px;line-height:1.3}
+  .wk-hi .w{display:block;font-size:10px;color:var(--muted);padding:0 2px 5px}
+  .wk-hi .del{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:none;
+    background:rgba(0,0,0,.65);color:#fff;font-size:16px;line-height:1;cursor:pointer}
+  .wk-hi.cur>button.go{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
 </style>
 </head>
 <body>
@@ -240,15 +270,24 @@
   </section>
 
   <section class="tab" id="tab-weekly" role="tabpanel" aria-labelledby="tabBtnWeekly" hidden>
-    <h1>Queen's Garden</h1>
-    <p class="sub">每週更表：揀日期，下載圖片或影片</p>
+    <h1 class="wk-h1">Queen's Garden 每週更表</h1>
 
-    <div class="stage">
-      <canvas id="wkCv" width="1012" height="1350"></canvas>
-      <div class="rec" id="wkRec">● 錄影中</div>
+    <div class="wk-top">
+      <button class="wk-thumb" id="wkThumb" aria-label="放大預覽及調整相片">
+        <canvas id="wkCv" width="1012" height="1350"></canvas>
+        <span class="zoomtag">🔍 按此放大</span>
+        <span class="rec" id="wkRec">● 錄影中</span>
+      </button>
+      <div class="wk-side">
+        <label class="file">📷 選擇相片<input type="file" id="wkPhoto" accept="image/*"></label>
+        <button class="adj-open" id="wkOpenPhoto"><span>🖼️</span><span class="t">調整相片位置</span><span class="go">›</span></button>
+        <button class="adj-open" id="wkOpenText"><span>✏️</span><span class="t">文字微調</span><span class="go">›</span></button>
+        <button class="btn" id="wkPlay">▶ 預覽動畫</button>
+        <div class="adj-sum" id="wkSum"></div>
+      </div>
     </div>
 
-    <div class="panel">
+    <div class="panel wk-panel">
       <div class="row">
         <div>
           <label for="wkStart">開始日期</label>
@@ -266,15 +305,57 @@
       </div>
     </div>
 
-    <div class="btns">
-      <button class="btn full" id="wkPlay">▶ 預覽動畫</button>
+    <div class="btns wk-btns">
       <button class="btn primary" id="wkPng">下載圖片 PNG</button>
       <button class="btn primary" id="wkMp4">下載影片（5 秒）</button>
     </div>
     <div class="status" id="wkStatus"></div>
     <div class="save" id="wkSaveBox"><button class="btn primary full" id="wkSaveVid" style="width:100%">💾 儲存影片</button></div>
 
-    <p class="note">揀開始日期後，結束日期會自動設為 6 日後，亦可以自己改。影片是即時錄製的，按下後約 5 秒完成，錄影期間請不要離開這個頁面。</p>
+    <div class="panel">
+      <label>最近 10 次更表記錄</label>
+      <div class="wk-hist" id="wkHist"></div>
+      <div class="adj-sum" id="wkHistMsg"></div>
+    </div>
+
+    <p class="note">揀開始日期後，結束日期會自動設為 6 日後，亦可以自己改。下載圖片或影片後會自動記錄（日期、相片、文字微調），按記錄可以重新載入。記錄只保存在這部裝置的瀏覽器。影片是即時錄製的，按下後約 5 秒完成，錄影期間請不要離開這個頁面。</p>
+
+    <div class="editor" id="wkEd" hidden role="dialog" aria-modal="true" aria-labelledby="wkEdTitle">
+      <div class="ed-head">
+        <h2 id="wkEdTitle">預覽及調整</h2>
+        <button class="small" id="wkEdPlay">▶ 播放</button>
+        <button class="ed-done" id="wkEdDone">完成</button>
+      </div>
+      <div class="ed-view" id="wkEdView">
+        <canvas id="wkPv" aria-label="即時預覽"></canvas>
+      </div>
+      <div class="ed-ctrl"><div>
+        <div class="seg two" id="wkEdSeg" role="tablist">
+          <button role="tab" data-m="photo">相片</button>
+          <button role="tab" data-m="text">文字</button>
+        </div>
+        <div id="wkCtlPhoto">
+          <div class="ed-tip" id="wkTipPhoto" style="margin:8px 0 0">用手指拖動相片，兩指縮放</div>
+          <div class="ed-row"><span>縮放</span>
+            <button class="step" data-z="-1" aria-label="縮細">−</button>
+            <input type="range" id="wkZoom" min="1" max="3" step="0.01" value="1" aria-label="縮放">
+            <button class="step" data-z="1" aria-label="放大">+</button>
+            <output id="wkZoomOut">100%</output></div>
+          <div class="ed-foot">
+            <label class="small wk-file2">📷 換相片<input type="file" id="wkPhoto2" accept="image/*" hidden></label>
+            <button class="small" id="wkResetPos">重設位置</button>
+          </div>
+        </div>
+        <div id="wkCtlText" hidden>
+          <div class="ed-tip" style="margin:8px 0 0">可以直接在卡上拖動日期</div>
+          <label class="ed-font"><span>字體</span><select id="wkFont" aria-label="字體"></select></label>
+          <div id="wkRows"></div>
+          <div class="ed-foot">
+            <button class="small" id="wkResetText">重設文字</button>
+          </div>
+        </div>
+      </div></div>
+    </div>
   </section>
 
   <div class="modal" id="promo" hidden role="dialog" aria-modal="true" aria-labelledby="promoTitle">
@@ -1076,30 +1157,37 @@ const $ = id => document.getElementById(id);
 const cv = $('wkCv'), cardCtx = cv.getContext('2d');
 let g = cardCtx; // 畫模糊效果時會暫時換成離屏畫布
 
-// 素材位置（卡片像素，對照 Canva 原片）
+// 素材位置（卡片像素）。徽章、兩條鑰匙及相框形狀（mask）是 Canva 匯出的透明圖層
 const L = {
-  bg:{f:'bg.jpg',x:0,y:0}, lace:{f:'lace.webp',x:38,y:265}, photo:{f:'photo.jpg',x:221,y:313},
-  pearl:{f:'pearl.webp',x:210,y:307}, emblem:{f:'emblem.webp',x:316,y:1074},
-  keyL:{f:'keyL.webp',x:2,y:1}, keyR:{f:'keyR.webp',x:812,y:755},
+  bg:{f:'bg.jpg',x:0,y:0}, lace:{f:'lace.webp',x:38,y:265},
+  mask:{f:'mask.png',x:210,y:307},
+  pearl:{f:'pearl.webp',x:210,y:307}, emblem:{f:'emblem.webp',x:300,y:952},
+  keyL:{f:'keyL.webp',x:1,y:0}, keyR:{f:'keyR.webp',x:779,y:753},
   ribbon:{f:'ribbon.webp',x:75,y:54}, crown:{f:'crown.webp',x:364,y:167},
   qg:{f:'qg.webp',x:226,y:264}, yisj:{f:'yisj.webp',x:119,y:1238},
 };
 const img = {}, blurImg = {};
 let assetsReady = false; // 全部素材載入完成先畫
-// 相框形狀：沿用限定宣傳的 PHOTO_PATH，按這張卡的相框大小縮放
-const BOX = {x:209.92, y:306.72, w:584.95, h:807.06};
-const BOX_SCALE = BOX.w/708.7;
+// 相框範圍（= mask 大小），相片會鋪滿呢個範圍再按相框形狀裁走
+const BOX = {x:210, y:307, w:585, h:807};
 const LACE_C = {x:505.5, y:733};
 // 逐字切開的位置（相對素材左邊）
 const QG_CUTS = [0,59,100,140,177,217,232,277,357,401,441,482,521,567];
 const YISJ_CUTS = Array.from({length:11}, (_,i)=>i*77.5);
 
 // 日期文字：沿彩帶弧形排列
-const DATE_FONT_FAM = '"Gochi Hand","Kalam","Chalkboard SE","Comic Sans MS",cursive';
+const DATE_FALLBACK = '"Gochi Hand","Kalam","Chalkboard SE","Comic Sans MS",cursive';
 const DATE = { size:49, sp:0, spaceW:2.2, cx:512, top:121, R:700, ax:512, ay:150,
   outline:'#2a1a20', stroke:9, bold:3.8, skew:0.16 };
+// 可選字體：沿用限定宣傳的手寫字體（本地 WOFF2），預設 Gochi Hand
+const FONTS = HAND_FONTS;
+const FONT_DEF = 'gochi';
+const ADJ = [['size','大小',-20,20],['sp','字距',-10,30],['dx','左右',-200,200],['dy','上下',-60,120]];
+const ADJ_RANGE = Object.fromEntries(ADJ.map(([f,,mn,mx])=>[f,[mn,mx]]));
+const blankAdj = ()=>({size:0, sp:0, dx:0, dy:0});
 
-const state = { start:null, end:null, text:'' };
+const state = { start:null, end:null, text:'', font:FONT_DEF, adj:blankAdj(),
+  photo:null, photoBlob:null, zoom:1, dx:0, dy:0 };
 let playing = false;
 
 // ---------- 工具 ----------
@@ -1167,64 +1255,100 @@ function group(fn, alpha, blur, scale, cx, cy){
   g.restore();
 }
 
+// ---------- 相片（自行上傳，按相框形狀裁切） ----------
+const pc = mkCanvas(BOX.w, BOX.h), pcc = pc.getContext('2d');
+function photoRect(){
+  const p = state.photo; if(!p) return null;
+  const s = Math.max(BOX.w/p.width, BOX.h/p.height)*state.zoom;
+  const w = p.width*s, h = p.height*s;
+  return { x:(BOX.w-w)/2 + state.dx, y:(BOX.h-h)/2 + state.dy, w, h };
+}
+function clampPos(){
+  const p = state.photo; if(!p) return;
+  const s = Math.max(BOX.w/p.width, BOX.h/p.height)*state.zoom;
+  const mx = Math.max(0,(p.width*s-BOX.w)/2), my = Math.max(0,(p.height*s-BOX.h)/2);
+  state.dx = clamp(state.dx,-mx,mx); state.dy = clamp(state.dy,-my,my);
+}
 function drawPhoto(){
-  g.save();
-  g.translate(BOX.x, BOX.y); g.scale(BOX_SCALE, BOX_SCALE); g.clip(PHOTO_PATH);
-  g.setTransform(1,0,0,1,0,0);
-  g.drawImage(img.photo, L.photo.x, L.photo.y);
-  g.restore();
+  pcc.globalCompositeOperation = 'source-over'; pcc.globalAlpha = 1;
+  pcc.clearRect(0,0,BOX.w,BOX.h);
+  const r = photoRect();
+  if(r){
+    pcc.imageSmoothingEnabled = true; pcc.imageSmoothingQuality = 'high';
+    pcc.drawImage(state.photo, r.x, r.y, r.w, r.h);
+  } else {
+    pcc.fillStyle = '#2a1f38'; pcc.fillRect(0,0,BOX.w,BOX.h);
+    pcc.fillStyle = '#a996c2'; pcc.textAlign = 'center'; pcc.textBaseline = 'middle';
+    pcc.font = '600 44px -apple-system,"PingFang TC","Noto Sans TC",sans-serif';
+    pcc.fillText('請選擇相片', BOX.w/2, BOX.h/2 - 30);
+  }
+  pcc.globalCompositeOperation = 'destination-in';
+  pcc.drawImage(img.mask, 0, 0);
+  pcc.globalCompositeOperation = 'source-over';
+  g.drawImage(pc, BOX.x, BOX.y);
 }
 
 // ---------- 日期文字 ----------
-let layout = null;
-function dateFont(){ return `400 ${DATE.size}px ${DATE_FONT_FAM}`; }
+let layout = null, dateBounds = null;
+const fontObj = ()=> FONTS.find(f=>f.id===state.font) || FONTS.find(f=>f.id===FONT_DEF) || FONTS[0];
+const dateSize = ()=> DATE.size + state.adj.size;
+function dateFont(){ const f = fontObj(); return `${f.w} ${dateSize()}px "${f.fam}",${DATE_FALLBACK}`; }
 function makeLayout(text){
-  const c = cardCtx; c.save(); c.font = dateFont();
+  const font = dateFont(), sp = DATE.sp + state.adj.sp;
+  const c = cardCtx; c.save(); c.font = font;
   const chars = [...text];
   const w = chars.map(ch=> ch===' ' ? c.measureText(' ').width*DATE.spaceW : c.measureText(ch).width);
   c.restore();
-  const total = w.reduce((a,b)=>a+b,0) + DATE.sp*(chars.length-1);
+  const total = w.reduce((a,b)=>a+b,0) + sp*(chars.length-1);
   let x = -total/2;
-  const items = chars.map((ch,i)=>{ const mid = x + w[i]/2; x += w[i] + DATE.sp; return {ch, a: mid/DATE.R}; });
-  return {text, items, key:document.fonts && document.fonts.check ? document.fonts.check(dateFont(), text) : true};
+  const items = chars.map((ch,i)=>{ const mid = x + w[i]/2; x += w[i] + sp; return {ch, a: mid/DATE.R}; });
+  return {sig:text+'|'+font+'|'+sp, items, key:document.fonts && document.fonts.check ? document.fonts.check(font, text) : true};
 }
-// 日期由細到大不停輕輕跳動（對照 Canva 原片：約 0.89 秒一次，最大約 1.28 倍）
+// 日期由細到大不停輕輕跳動（約 0.89 秒一次，最大約 1.28 倍）
 const pulse = t => 1.14 + 0.14*Math.cos(2*Math.PI*(t-1.97)/0.887);
 function drawDate(t, final){
+  dateBounds = null;
   if(!state.text) return;
-  if(!layout || layout.text!==state.text || !layout.key) layout = makeLayout(state.text);
+  const font = dateFont(), sp = DATE.sp + state.adj.sp;
+  if(!layout || layout.sig!==state.text+'|'+font+'|'+sp || !layout.key) layout = makeLayout(state.text);
   const s = final ? 1 : pulse(t);
-  const CY = DATE.top + DATE.R;
+  const cx = DATE.cx + state.adj.dx, top = DATE.top + state.adj.dy;
+  const ax = DATE.ax + state.adj.dx, ay = DATE.ay + state.adj.dy;
+  const CY = top + DATE.R, sz = dateSize();
+  const bold = DATE.bold*sz/DATE.size, stroke = DATE.stroke*sz/DATE.size;
+  let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9;
   g.save();
-  g.translate(DATE.ax, DATE.ay); g.scale(s,s); g.translate(-DATE.ax, -DATE.ay);
-  g.font = dateFont(); g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.translate(ax, ay); g.scale(s,s); g.translate(-ax, -ay);
+  g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.lineJoin = 'round'; g.miterLimit = 2;
   layout.items.forEach((it,i)=>{
     if(it.ch===' ') return;
+    const px = cx + DATE.R*Math.sin(it.a), py = CY - DATE.R*Math.cos(it.a);
+    bx0 = Math.min(bx0, px); bx1 = Math.max(bx1, px); by0 = Math.min(by0, py); by1 = Math.max(by1, py);
     let k = 1;
     if(!final){
       const p = prog(t, 0.3 + i*0.052, 0.1);
       if(p<=0) return;
       k = easeBack(p, 2);
     }
-    const px = DATE.cx + DATE.R*Math.sin(it.a), py = CY - DATE.R*Math.cos(it.a);
     g.save();
     g.translate(px, py); g.rotate(it.a); g.scale(k,k);
     if(DATE.skew) g.transform(1,0,-DATE.skew,1,0,0); // 原稿字體稍為向右斜
-    g.strokeStyle = DATE.outline; g.lineWidth = DATE.stroke + DATE.bold;
+    g.strokeStyle = DATE.outline; g.lineWidth = stroke + bold;
     g.strokeText(it.ch, 0, 0);
-    g.strokeStyle = '#fff'; g.lineWidth = DATE.bold; g.strokeText(it.ch, 0, 0);
+    g.strokeStyle = '#fff'; g.lineWidth = bold; g.strokeText(it.ch, 0, 0);
     g.fillStyle = '#fff'; g.fillText(it.ch, 0, 0);
     g.restore();
   });
   g.restore();
+  if(bx1>bx0) dateBounds = {x:bx0-sz*0.45, y:by0-sz*0.6, w:bx1-bx0+sz*0.9, h:by1-by0+sz*1.2};
 }
 
 // ---------- 畫面（t = 秒；final = 靜態完成圖） ----------
 function render(t, final=false){
   g = cardCtx;
   g.setTransform(1,0,0,1,0,0); g.globalAlpha = 1;
-  if(!assetsReady){ g.fillStyle = '#16101f'; g.fillRect(0,0,W,H); return; }
+  if(!assetsReady){ g.fillStyle = '#16101f'; g.fillRect(0,0,W,H); mirror(); return; }
   if(final) t = 99;
   g.drawImage(img.bg, 0, 0);
   // 蕾絲：一直順時針轉（每秒 18 度）
@@ -1234,12 +1358,12 @@ function render(t, final=false){
     g.drawImage(img.lace, L.lace.x, L.lace.y);
     g.restore();
   }
-  // 左上鑰匙：半透明淡入
+  // 左上鑰匙：由左邊淡入
   const kl = easeOut(prog(t,0.05,0.3));
-  layer('keyL', 0.75*kl, {dx:-105, dy:-16});
+  layer('keyL', kl, {dx:-36*(1-kl)});
   // 右下鑰匙：1 秒左右由右邊淡入
   const kr = easeOut(prog(t,0.88,0.35));
-  layer('keyR', 0.8*kr, {dx:112 + 40*(1-kr), dy:-4, scale:0.95});
+  layer('keyR', kr, {dx:40*(1-kr)});
 
   // 相片：0.65 秒起由細變大、由模糊變清（前段保持很模糊，約 0.9 秒才轉清）
   const pt = prog(t,0.65,0.32), pg = easeOut(pt);
@@ -1267,7 +1391,9 @@ function render(t, final=false){
     const st = 1.06 + i*0.068;
     return {a: prog(t,st,0.03), dy: 18*(1-easeOut(prog(t,st,0.12)))};
   });
+  mirror();
 }
+const still = ()=>{ if(!playing) render(0,true); };
 
 // ---------- 日期輸入 ----------
 const DOW = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
@@ -1290,8 +1416,8 @@ function updateDates(){
     out.textContent = bad ? '結束日期早過開始日期，請檢查' : '會顯示為：'+state.text;
     out.className = 'dateout' + (bad ? ' warn' : '');
   }
-  ensureFont().then(()=>{ layout = null; if(!playing) render(0,true); });
-  if(!playing) render(0,true);
+  ensureFont().then(()=>{ layout = null; still(); });
+  still(); markCurrent();
 }
 function setStart(d){
   $('wkStart').value = toVal(d);
@@ -1304,11 +1430,187 @@ $('wkStart').addEventListener('input', ()=>{ const d = fromVal($('wkStart').valu
 $('wkPrev').addEventListener('click', ()=>setStart(addDays(state.start||nextMonday(), -7)));
 $('wkNext').addEventListener('click', ()=>setStart(addDays(state.start||nextMonday(), 7)));
 
-let fontP = null;
 function ensureFont(){
   if(!document.fonts || !document.fonts.load) return Promise.resolve();
   const p = document.fonts.load(dateFont(), '0123456789/()~ '+DOW.join('')).catch(()=>{});
   return Promise.race([p, new Promise(r=>setTimeout(r,6000))]);
+}
+
+// ---------- 相片輸入 ----------
+// 縮細超大相片，避免手機記憶體不足
+function blobToCanvas(blob){
+  return new Promise((res,rej)=>{
+    const url = URL.createObjectURL(blob), im = new Image();
+    im.onload = ()=>{
+      const sc = Math.min(1, 2000/Math.max(im.width, im.height));
+      const c = mkCanvas(Math.round(im.width*sc), Math.round(im.height*sc));
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      URL.revokeObjectURL(url); res(c);
+    };
+    im.onerror = e=>{ URL.revokeObjectURL(url); rej(e); };
+    im.src = url;
+  });
+}
+async function onPhoto(e){
+  const f = e.target.files && e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  try{
+    state.photo = await blobToCanvas(f); state.photoBlob = null;
+    resetPos(); updateSum();
+    say('');
+  }catch(err){ say('相片讀取失敗，請換一張再試'); }
+}
+$('wkPhoto').addEventListener('change', onPhoto);
+$('wkPhoto2').addEventListener('change', onPhoto);
+function resetPos(){ state.zoom = 1; state.dx = 0; state.dy = 0; syncZoom(); still(); }
+function syncZoom(){ $('wkZoom').value = state.zoom; $('wkZoomOut').textContent = Math.round(state.zoom*100)+'%'; }
+function setZoom(z){ state.zoom = clamp(z,1,3); clampPos(); syncZoom(); still(); }
+$('wkZoom').addEventListener('input', e=>setZoom(+e.target.value));
+$('wkResetPos').addEventListener('click', resetPos);
+
+// ---------- 全螢幕預覽／調整（相片或文字） ----------
+let edOpen = false, edMode = 'photo';
+const pv = $('wkPv'), pctx = pv.getContext('2d');
+function mirror(){
+  if(!edOpen || !pv.width) return;
+  pctx.setTransform(1,0,0,1,0,0);
+  pctx.imageSmoothingEnabled = true; pctx.imageSmoothingQuality = 'high';
+  pctx.drawImage(cv, 0, 0, pv.width, pv.height);
+  // 文字模式：日期加虛線框（只在預覽顯示，不會出現在圖片或影片）
+  if(edMode!=='text' || playing || !dateBounds) return;
+  const s = pv.width/W, b = dateBounds, u = 1/s*Math.min(window.devicePixelRatio||1, 3), p = 8;
+  pctx.save(); pctx.setTransform(s,0,0,s,0,0);
+  pctx.lineWidth = 2*u; pctx.setLineDash([7*u,5*u]);
+  pctx.strokeStyle = 'rgba(0,0,0,.6)'; pctx.strokeRect(b.x-p, b.y-p, b.w+p*2, b.h+p*2);
+  pctx.lineDashOffset = 6*u; pctx.strokeStyle = '#f2d48a'; pctx.strokeRect(b.x-p, b.y-p, b.w+p*2, b.h+p*2);
+  pctx.restore();
+}
+function sizePreview(){
+  if(!edOpen) return;
+  const box = $('wkEdView'), aspect = W/H;
+  const aw = box.clientWidth-16, ah = box.clientHeight-16;
+  if(aw<=0 || ah<=0) return;
+  const cw = Math.min(aw, ah*aspect), ch = cw/aspect;
+  const dpr = Math.min(window.devicePixelRatio||1, 3);
+  pv.style.width = cw+'px'; pv.style.height = ch+'px';
+  pv.width = Math.round(cw*dpr); pv.height = Math.round(ch*dpr);
+  mirror();
+}
+function syncEd(){
+  $('wkEdSeg').querySelectorAll('button').forEach(b=>{
+    const on = b.dataset.m===edMode; b.classList.toggle('on', on); b.setAttribute('aria-selected', on);
+  });
+  $('wkCtlPhoto').hidden = edMode!=='photo';
+  $('wkCtlText').hidden = edMode!=='text';
+  $('wkTipPhoto').textContent = state.photo ? '用手指拖動相片，兩指縮放' : '未選相片，按「換相片」揀一張';
+  pv.style.cursor = edMode==='photo' ? (state.photo ? 'grab' : '') : 'grab';
+  ADJ.forEach(([f])=>{ $('wi_'+f).value = state.adj[f]; $('wo_'+f).textContent = state.adj[f]; });
+  $('wkFont').value = state.font;
+  syncZoom();
+}
+function openEd(mode){
+  if(playing) return;
+  edMode = mode; edOpen = true;
+  $('wkEd').hidden = false;
+  document.body.style.overflow = 'hidden';
+  syncEd();
+  requestAnimationFrame(()=>{ sizePreview(); still(); });
+}
+function closeEd(){
+  if(playing) return;
+  edOpen = false;
+  $('wkEd').hidden = true;
+  document.body.style.overflow = '';
+  updateSum(); still();
+}
+$('wkThumb').addEventListener('click', ()=>openEd('photo'));
+$('wkOpenPhoto').addEventListener('click', ()=>openEd('photo'));
+$('wkOpenText').addEventListener('click', ()=>openEd('text'));
+$('wkEdDone').addEventListener('click', closeEd);
+$('wkEdSeg').addEventListener('click', e=>{ const m = e.target.dataset && e.target.dataset.m; if(m){ edMode = m; syncEd(); mirror(); } });
+window.addEventListener('resize', sizePreview);
+if(window.visualViewport) visualViewport.addEventListener('resize', sizePreview);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && edOpen) closeEd(); });
+
+// 文字微調控制
+$('wkFont').innerHTML = FONTS.map(f=>`<option value="${f.id}">${f.label.replace('（預設）','')}${f.id===FONT_DEF?'（預設）':''}</option>`).join('');
+$('wkRows').innerHTML = ADJ.map(([f,fl,mn,mx])=>
+  `<div class="ed-row"><span>${fl}</span>`+
+  `<button class="step" data-f="${f}" data-d="-1" aria-label="${fl}減少">−</button>`+
+  `<input type="range" id="wi_${f}" min="${mn}" max="${mx}" step="1" value="0" data-f="${f}" aria-label="${fl}">`+
+  `<button class="step" data-f="${f}" data-d="1" aria-label="${fl}增加">+</button>`+
+  `<output id="wo_${f}">0</output></div>`).join('');
+function setAdj(f, v){
+  state.adj[f] = clamp(Math.round(v), ...ADJ_RANGE[f]);
+  $('wi_'+f).value = state.adj[f]; $('wo_'+f).textContent = state.adj[f];
+  still();
+}
+$('wkRows').addEventListener('input', e=>{ const f = e.target.dataset && e.target.dataset.f; if(f) setAdj(f, +e.target.value); });
+$('wkFont').addEventListener('change', e=>{
+  state.font = e.target.value; layout = null; still();
+  ensureFont().then(()=>{ layout = null; still(); });
+});
+$('wkResetText').addEventListener('click', ()=>{
+  state.adj = blankAdj(); state.font = FONT_DEF; layout = null; syncEd(); still();
+  ensureFont().then(()=>{ layout = null; still(); });
+});
+// − / ＋：按一下調 1，按住會連續調（縮放每次 5%）
+(function(){
+  let rep = null;
+  const stop = ()=>{ if(rep){ clearTimeout(rep.t); clearInterval(rep.i); rep = null; } };
+  const bump = b => b.dataset.z ? setZoom(state.zoom + 0.05*(+b.dataset.z)) : setAdj(b.dataset.f, state.adj[b.dataset.f] + (+b.dataset.d));
+  const box = $('wkEd').querySelector('.ed-ctrl');
+  box.addEventListener('pointerdown', e=>{
+    const b = e.target.closest('.step'); if(!b) return;
+    e.preventDefault(); stop(); bump(b);
+    rep = {t:setTimeout(()=>{ rep.i = setInterval(()=>bump(b), 60); }, 400)};
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>box.addEventListener(ev, stop));
+  box.addEventListener('click', e=>{ const b = e.target.closest('.step'); if(b && e.detail===0) bump(b); }); // 鍵盤
+})();
+
+// 在預覽上拖動：相片模式拖相片／兩指縮放；文字模式拖日期
+(function(){
+  const pts = new Map(); let pinch = null, drag = null;
+  const k = ()=> W/pv.clientWidth;
+  pv.addEventListener('pointerdown', e=>{
+    if(playing) return;
+    if(edMode==='photo' && !state.photo) return;
+    if(edMode==='text' && !state.text) return;
+    pv.setPointerCapture(e.pointerId);
+    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(edMode==='photo' && pts.size===2){ const [a,b] = [...pts.values()]; pinch = {d:Math.hypot(a.x-b.x,a.y-b.y)||1, z:state.zoom}; }
+    if(edMode==='text' && pts.size===1) drag = {x:e.clientX, y:e.clientY, dx:state.adj.dx, dy:state.adj.dy};
+  });
+  pv.addEventListener('pointermove', e=>{
+    if(!pts.has(e.pointerId)) return;
+    const prev = pts.get(e.pointerId);
+    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(edMode==='text'){
+      if(!drag) return;
+      state.adj.dx = clamp(Math.round(drag.dx + (e.clientX-drag.x)*k()), ...ADJ_RANGE.dx);
+      state.adj.dy = clamp(Math.round(drag.dy + (e.clientY-drag.y)*k()), ...ADJ_RANGE.dy);
+      syncEd(); render(0,true); return;
+    }
+    if(pts.size===2 && pinch){
+      const [a,b] = [...pts.values()];
+      state.zoom = clamp(pinch.z*Math.hypot(a.x-b.x,a.y-b.y)/pinch.d, 1, 3); syncZoom();
+    } else if(pts.size===1){
+      state.dx += (e.clientX-prev.x)*k(); state.dy += (e.clientY-prev.y)*k();
+    }
+    clampPos(); render(0,true);
+  });
+  const end = e=>{ pts.delete(e.pointerId); if(pts.size<2) pinch = null; if(!pts.size) drag = null; };
+  pv.addEventListener('pointerup', end); pv.addEventListener('pointercancel', end);
+})();
+
+function updateSum(){
+  const parts = [];
+  parts.push(state.photo ? '相片：已選' : '相片：未選');
+  const changed = state.font!==FONT_DEF || ADJ.some(([f])=>state.adj[f]!==0);
+  parts.push(changed ? '文字：已微調' : '文字：原本位置');
+  $('wkSum').textContent = parts.join('｜');
+  $('wkSum').classList.toggle('on', !!state.photo);
 }
 
 // ---------- 播放 ----------
@@ -1326,10 +1628,15 @@ function playOnce(){
     requestAnimationFrame(step);
   });
 }
-function setBusy(b){ ['wkPlay','wkPng','wkMp4','wkPrev','wkNext','wkStart','wkEnd'].forEach(id=>$(id).disabled=b); }
+const BUSY_IDS = ['wkPlay','wkPng','wkMp4','wkPrev','wkNext','wkStart','wkEnd','wkPhoto','wkPhoto2','wkThumb','wkOpenPhoto','wkOpenText','wkEdPlay','wkEdDone'];
+function setBusy(b){
+  BUSY_IDS.forEach(id=>$(id).disabled=b);
+  $('wkHist').querySelectorAll('button').forEach(x=>x.disabled=b);
+}
 const say = m => $('wkStatus').textContent = m||'';
 function ready(){
   if(!assetsReady){ say('素材仲載入緊，請稍等'); return false; }
+  if(!state.photo){ say('請先選擇相片'); return false; }
   if(!state.text){ say('請選擇日期'); return false; }
   if(state.end < state.start){ say('結束日期早過開始日期，請檢查'); return false; }
   return true;
@@ -1338,21 +1645,25 @@ function baseName(){
   const a = state.start, b = state.end;
   return `每週更表_${a.getDate()}-${a.getMonth()+1}至${b.getDate()}-${b.getMonth()+1}`;
 }
-$('wkPlay').addEventListener('click', async ()=>{
+async function preview(){
   if(playing || !assetsReady) return;
   await ensureFont(); layout = null;
   setBusy(true); await playOnce(); setBusy(false); render(0,true);
-});
+}
+$('wkPlay').addEventListener('click', preview);
+$('wkEdPlay').addEventListener('click', preview);
 $('wkPng').addEventListener('click', async ()=>{
   if(playing || !ready()) return;
   setBusy(true);
+  let ok = false;
   try{
     await ensureFont(); layout = null; render(0,true);
     const blob = await new Promise(r=>cv.toBlob(r,'image/png'));
     if(!blob){ say('圖片生成失敗，請再試一次'); return; }
-    await saveBlob(blob, baseName()+'.png', say);
+    ok = await saveBlob(blob, baseName()+'.png', say);
   }catch(err){ say('圖片生成失敗，請再試一次'); }
   finally{ setBusy(false); }
+  if(ok) saveHistory();
 });
 
 let pendingVideo = null;
@@ -1386,9 +1697,103 @@ $('wkMp4').addEventListener('click', async ()=>{
   pendingVideo = { blob:new Blob(chunks,{type:type.split(';')[0]}), name:name+'.'+ext };
   say('錄好了！按下面的按鈕儲存' + (ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
   $('wkSaveBox').classList.add('on');
+  saveHistory();
 });
 $('wkSaveVid').addEventListener('click', async ()=>{
   if(pendingVideo) await saveBlob(pendingVideo.blob, pendingVideo.name, say);
+});
+
+// ---------- 最近 10 次更表記錄（只存在這部裝置的瀏覽器 IndexedDB） ----------
+const HIST_MAX = 10;
+let dbP = null;
+function db(){
+  if(!dbP){
+    dbP = new Promise((res,rej)=>{
+      try{
+        const r = indexedDB.open('qg-weekly', 1);
+        r.onupgradeneeded = ()=>{ r.result.createObjectStore('hist', {keyPath:'id'}); };
+        r.onsuccess = ()=>res(r.result);
+        r.onerror = ()=>rej(r.error);
+        r.onblocked = ()=>rej(new Error('blocked'));
+      }catch(e){ rej(e); }
+    });
+    dbP.catch(()=>{ dbP = null; });
+  }
+  return dbP;
+}
+function tx(mode, fn){
+  return db().then(d=>new Promise((res,rej)=>{
+    const t = d.transaction('hist', mode), s = t.objectStore('hist');
+    let out; const r = fn(s); if(r) r.onsuccess = ()=>{ out = r.result; };
+    t.oncomplete = ()=>res(out); t.onerror = ()=>rej(t.error); t.onabort = ()=>rej(t.error);
+  }));
+}
+const histAll = ()=> tx('readonly', s=>s.getAll()).then(a=>(a||[]).sort((x,y)=>y.ts-x.ts));
+const toBlob = (c, type, q)=> new Promise(r=>c.toBlob(r, type, q));
+async function saveHistory(){
+  try{
+    if(!state.photoBlob) state.photoBlob = await toBlob(state.photo, 'image/jpeg', 0.9);
+    const tc = mkCanvas(240, 320), tcc = tc.getContext('2d');
+    tcc.imageSmoothingQuality = 'high'; tcc.drawImage(cv, 0, 0, tc.width, tc.height);
+    const thumb = await toBlob(tc, 'image/jpeg', 0.82);
+    const s = toVal(state.start), e = toVal(state.end);
+    const entry = { id:s+'_'+e, ts:Date.now(), start:s, end:e, text:state.text,
+      font:state.font, adj:{...state.adj}, zoom:state.zoom, dx:state.dx, dy:state.dy,
+      photo:state.photoBlob, thumb };
+    await tx('readwrite', st=>st.put(entry)); // 同一個日期範圍只保留最新一次
+    const all = await histAll();
+    if(all.length>HIST_MAX) await tx('readwrite', st=>{ all.slice(HIST_MAX).forEach(x=>st.delete(x.id)); });
+    await showHistory();
+  }catch(err){ $('wkHistMsg').textContent = '這個瀏覽器未能保存記錄（例如私密瀏覽模式）'; }
+}
+let thumbUrls = [];
+let histCache = [];
+async function showHistory(){
+  const box = $('wkHist'), msg = $('wkHistMsg');
+  let all;
+  try{ all = await histAll(); }
+  catch(err){ box.innerHTML = ''; msg.textContent = '這個瀏覽器未能使用記錄功能（例如私密瀏覽模式）'; return; }
+  thumbUrls.forEach(u=>URL.revokeObjectURL(u)); thumbUrls = [];
+  histCache = all;
+  box.innerHTML = all.map((h,i)=>{
+    const u = h.thumb ? URL.createObjectURL(h.thumb) : ''; thumbUrls.push(u);
+    const d = new Date(h.ts);
+    const when = `${d.getDate()}/${d.getMonth()+1} ${pad(d.getHours())}:${pad(d.getMinutes())} 儲存`;
+    const label = (h.text||'').replace(/ \(\w+\)/g,'');
+    return `<div class="wk-hi" data-id="${h.id}"><button class="go" data-i="${i}" aria-label="載入 ${h.text}">`+
+      (u ? `<img src="${u}" alt="">` : '')+`<span class="d">${label}</span><span class="w">${when}</span></button>`+
+      `<button class="del" data-del="${i}" aria-label="刪除這個記錄">×</button></div>`;
+  }).join('');
+  msg.textContent = all.length ? '按記錄可以重新載入當時的日期、相片和文字微調' : '未有記錄。下載圖片或影片後會自動記錄最近 10 次。';
+  markCurrent();
+}
+function markCurrent(){
+  const id = state.start && state.end ? toVal(state.start)+'_'+toVal(state.end) : '';
+  $('wkHist').querySelectorAll('.wk-hi').forEach(el=>el.classList.toggle('cur', el.dataset.id===id));
+}
+$('wkHist').addEventListener('click', async e=>{
+  if(playing) return;
+  const del = e.target.closest('[data-del]');
+  if(del){
+    const h = histCache[+del.dataset.del]; if(!h) return;
+    if(!confirm('刪除「'+h.text+'」這個記錄？')) return;
+    try{ await tx('readwrite', st=>st.delete(h.id)); }catch(err){}
+    showHistory(); return;
+  }
+  const go = e.target.closest('[data-i]'); if(!go) return;
+  const h = histCache[+go.dataset.i]; if(!h) return;
+  try{
+    const c = h.photo ? await blobToCanvas(h.photo) : null;
+    state.photo = c; state.photoBlob = h.photo || null;
+    state.font = h.font || FONT_DEF; state.adj = {...blankAdj(), ...(h.adj||{})};
+    state.zoom = h.zoom||1; state.dx = h.dx||0; state.dy = h.dy||0;
+    clampPos(); syncZoom(); layout = null;
+    $('wkStart').value = h.start; $('wkEnd').value = h.end;
+    updateDates(); updateSum();
+    ensureFont().then(()=>{ layout = null; still(); });
+    say('已載入記錄：'+h.text);
+    window.scrollTo({top:0, behavior:'smooth'});
+  }catch(err){ say('記錄載入失敗'); }
 });
 
 // ---------- 開始（第一次打開分頁時載入素材） ----------
@@ -1396,6 +1801,8 @@ let started = false;
 function start(){
   if(started) return; started = true;
   setStart(nextMonday());
+  updateSum(); syncZoom();
+  showHistory();
   say('載入素材中…');
   Promise.all(Object.keys(L).map(k=>loadImg('weekly/'+L[k].f).then(i=>{ img[k]=i; })))
     .then(async ()=>{
