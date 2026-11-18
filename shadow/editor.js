@@ -4,7 +4,7 @@
   const status = text => { field('status').textContent = text; };
   const positions = [[0,0],[219,105],[325,280],[285,14],[129,227],[115,245],[234,1220],[63,938],[679,314]];
   const adj = Object.fromEntries(['name','ig','date'].map(key => [key,{dx:0,dy:0,size:0}]));
-  const model = {adj, photo:null, zoom:1, dx:0, dy:0};
+  const model = {adj, font:{name:'default',ig:'default',date:'default'}, photo:null, zoom:1, dx:0, dy:0};
   const layout = rememberLayout('shadow', model);
   let images, loading, busy = false, pending, upload = 0;
   const panel = document.getElementById('tab-shadow');
@@ -52,6 +52,14 @@
   }
   // 動畫時序對照 Canva 原片逐格量度（30fps）
   const NAME_FONT='900 {size}px "Chiron GoRound TC","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif';
+  function chosenFont(k,size){
+    const id=model.font?.[k]||'default';
+    if(id==='zen')return 'bold '+size+'px "Zen Kurenaido","PingFang TC",sans-serif';
+    if(id==='chiron')return '900 '+size+'px "Chiron GoRound TC","PingFang TC",sans-serif';
+    if(id==='hand')return 'bold '+size+'px '+FONT_HAND;
+    if(id==='serif')return 'bold '+size+'px Georgia,"Times New Roman",serif';
+    return k==='name'?NAME_FONT.replace('{size}',size):'bold '+size+'px '+FONT_HAND;
+  }
   const BANNER_PARTS=[[0,66,.55],[94,149,.67],[153,209,.8],[215,267,.93],[294,361,1.03]];
   const ease=x=>1-Math.pow(1-x,3);
   const pop=x=>x>=1?1:1+2.2*Math.pow(x-1,3)+1.2*Math.pow(x-1,2);
@@ -112,7 +120,7 @@
       const a=adj[key], chars=[...value], n=chars.length, sz=size+a.size;
       const step=Math.min(span/Math.max(1,n-1), .1);
       ctx.save();
-      ctx.font=font.replace('{size}',sz);
+      ctx.font=chosenFont(key,sz);
       ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
       const total=ctx.measureText(value).width, squeeze=Math.min(1,820/total);
       ctx.translate(506+a.dx,y+a.dy); ctx.scale(squeeze,1);
@@ -182,7 +190,7 @@
     return new Promise(resolve=>{
       const begin=performance.now();
       function frame(now) {
-        const t=(now-begin)/1000; draw(t,s);
+        const t=(now-begin)/1000; draw(t,s||details());
         if (t<5) requestAnimationFrame(frame); else resolve();
       }
       requestAnimationFrame(frame);
@@ -190,19 +198,20 @@
   }
   function lock(value) {
     busy=value;
-    panel.querySelectorAll('input,select,button').forEach(el=>el.disabled=value);
+    // Only disable export actions while encoding; keep fields and photo controls responsive.
+    ['png','video','save'].forEach(id=>{const el=field(id);if(el)el.disabled=value;});
   }
   async function run(mode) {
     if (busy) return;
     const s=details();
     if (mode!=='play' && (!model.photo || !s.name || !s.ig || !s.date)) {status('請先選擇相片，並填寫名字、IG 和日期。');return;}
-    lock(true);
+    if(mode!=='play')lock(true);
     let stream, recorder;
     try {
       await start(); if (!images) return;
       await Promise.all([document.fonts.load(NAME_FONT.replace('{size}',120),s.name||'影'),document.fonts.load('bold 50px '+FONT_HAND,'Date '+s.ig)]);
       const filename='影子精靈_'+s.name.replace(/[^\p{L}\p{N}_.-]/gu,'_');
-      if (mode==='play') { await animate(s); return; }
+      if (mode==='play') { await animate(); return; }
       if (mode==='png') {
         draw(5,s);
         const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
@@ -224,7 +233,7 @@
       pending={blob:new Blob(chunks,{type:type.split(';')[0]}),filename:filename+'.'+ext,s};
       field('save').hidden=false; status('影片已準備好（'+ext.toUpperCase()+'）');
     } catch(err) { status(err.message || '匯出失敗，請再試一次。'); }
-    finally { stream?.getTracks().forEach(track=>track.stop()); lock(false); draw(); }
+    finally { stream?.getTracks().forEach(track=>track.stop()); if(mode!=='play')lock(false); draw(); }
   }
   field('play').onclick=()=>run('play');
   field('png').onclick=()=>run('png');
