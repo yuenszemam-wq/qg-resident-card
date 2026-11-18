@@ -56,3 +56,58 @@
  #tab-shadow .qg-shadow-fields input{font-size:16px}
  #wkEd .ed-head .small,#wkEd .ed-head .ed-done{font-size:13px;padding:8px 10px}
 }
+
+
+/* 2026-11-19 — shared photo/text editor UX */
+.qg-legacy-controls,[hidden].qg-legacy-controls{display:none!important}
+.qg-unified-editor .ed-head{display:flex;align-items:center;gap:8px}
+.qg-unified-editor .ed-head h2{font-size:16px;min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qg-unified-editor .ed-head .small,.qg-unified-editor .ed-head .ed-done{white-space:nowrap;flex-shrink:0}
+.qg-unified-editor .ed-ctrl{overflow-y:auto}
+.qg-unified-editor .ed-ctrl .ed-row{display:grid;grid-template-columns:42px 42px minmax(0,1fr) 42px 30px;align-items:center;gap:7px;margin:10px 0;min-width:0}
+.qg-unified-editor .ed-ctrl .ed-row input[type=range]{width:100%;min-width:0;accent-color:#af83e2}
+.qg-unified-editor .ed-ctrl .ed-row output{text-align:right;tabular-nums:1}
+.qg-unified-editor .ed-font{display:flex;align-items:center;gap:10px;margin:10px 0}
+.qg-unified-editor .ed-font span{flex:0 0 38px}
+.qg-unified-editor .ed-font select{min-width:0;flex:1;width:auto}
+.qg-unified-editor .ed-foot{display:flex;gap:10px;margin-top:12px}
+.qg-unified-editor .ed-foot .small{flex:1;min-height:40px}
+.qg-unified-editor .qg-photo-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 12px}
+.qg-unified-editor .qg-photo-actions button{min-height:46px}
+.qg-unified-editor .qg-photo-zoom{display:block}
+.qg-unified-editor .qg-photo-zoom input{display:block;width:100%;margin-top:8px;accent-color:#b580df}
+.qg-unified-editor .ed-view{min-height:0}
+#editor #edZoom[hidden],#wkEd #wkEdZoom[hidden]{display:none!important}
+#tab-promo .promo-tools .adj-open,#tab-shadow .promo-tools .adj-open{width:100%;box-sizing:border-box}
+#tab-promo .promo-top>.stage,#tab-shadow .promo-top>.stage{cursor:zoom-in}
+#tab-promo h1{font-size:22px}
+@media(max-width:420px){
+ .qg-unified-editor .ed-ctrl .ed-row{grid-template-columns:34px 34px minmax(0,1fr) 34px 26px;gap:5px}
+ .qg-unified-editor .ed-head{gap:5px}
+ .qg-unified-editor .ed-head .small,.qg-unified-editor .ed-head .ed-done{padding:8px 9px;font-size:13px}
+}
+
+
+/* Export progress, persistent captions and private per-device record lists */
+.qg-export-progress{display:grid;grid-template-columns:1fr auto;align-items:center;gap:7px 10px;margin:12px 0;padding:12px;background:#21162e;border:1px solid #59416d;border-radius:12px}
+.qg-export-progress[hidden]{display:none}
+.qg-export-progress .qg-progress-label{font-size:14px;color:#f2e9fa}
+.qg-export-progress .qg-progress-value{font-size:13px;color:#dbb0ee}
+.qg-export-progress progress{grid-column:1/-1;width:100%;height:12px;accent-color:#b77fd6;appearance:auto}
+.qg-export-progress[data-status=error]{border-color:#ba7882}
+.qg-card-history,.qg-saved-caption{margin-top:14px}
+.qg-hist-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.qg-hist-head strong{font-size:15px}.qg-hist-head small{font-size:11px;color:var(--muted)}
+.qg-hist-list{display:grid;gap:8px;max-height:380px;overflow-y:auto}
+.qg-hist-row{display:flex;align-items:stretch;gap:8px;min-width:0}
+.qg-hist-load{display:flex;align-items:center;gap:10px;flex:1;min-width:0;text-align:left;border:1px solid var(--line);background:#170f22;color:var(--text);border-radius:10px;padding:6px 8px}
+.qg-hist-load img{width:48px;height:64px;object-fit:cover;border-radius:6px}
+.qg-hist-meta{display:flex;flex-direction:column;gap:4px;min-width:0}
+.qg-hist-meta strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qg-hist-meta small{color:var(--muted)}
+.qg-hist-delete{flex:0 0 38px;border:1px solid var(--line);background:#27152e;color:#f0d4ed;border-radius:9px;font-size:23px}
+.qg-hist-status,.qg-hist-empty{color:var(--muted);font-size:12px;line-height:1.6;margin:8px 0 0}
+.qg-saved-caption .qg-caption-title{display:block;color:var(--gold);margin-bottom:10px}
+.qg-saved-caption .qg-caption-body{font:inherit;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-y:auto;max-height:280px;overflow-wrap:anywhere;background:#170e22;border:1px solid var(--line);border-radius:8px;padding:12px;user-select:text;-webkit-user-select:text}
+.qg-saved-caption .btn{width:100%}
+.qg-caption-msg{display:block;text-align:center;margin-top:5px;color:var(--gold);font-size:12px}

@@ -3,8 +3,8 @@
   const canvas = field('preview'), ctx = canvas.getContext('2d');
   const status = text => { field('status').textContent = text; };
   const positions = [[0,0],[219,105],[325,280],[285,14],[129,227],[115,245],[234,1220],[63,938],[679,314]];
-  const adj = Object.fromEntries(['name','ig','date'].map(key => [key,{dx:0,dy:0,size:0}]));
-  const model = {adj, photo:null, zoom:1, dx:0, dy:0};
+  const adj = Object.fromEntries(['name','ig','date'].map(key => [key,{dx:0,dy:0,size:0,sp:0}]));
+  const model = {adj, font:{name:'default',ig:'default',date:'default'}, photo:null, zoom:1, dx:0, dy:0};
   const layout = rememberLayout('shadow', model);
   let images, loading, busy = false, pending, upload = 0;
   const panel = document.getElementById('tab-shadow');
@@ -52,6 +52,14 @@
   }
   // 動畫時序對照 Canva 原片逐格量度（30fps）
   const NAME_FONT='900 {size}px "Chiron GoRound TC","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif';
+  function chosenFont(k,size){
+    const id=model.font?.[k]||'default';
+    if(id==='zen')return 'bold '+size+'px "Zen Kurenaido","PingFang TC",sans-serif';
+    if(id==='chiron')return '900 '+size+'px "Chiron GoRound TC","PingFang TC",sans-serif';
+    if(id==='hand')return 'bold '+size+'px '+FONT_HAND;
+    if(id==='serif')return 'bold '+size+'px Georgia,"Times New Roman",serif';
+    return k==='name'?NAME_FONT.replace('{size}',size):'bold '+size+'px '+FONT_HAND;
+  }
   const BANNER_PARTS=[[0,66,.55],[94,149,.67],[153,209,.8],[215,267,.93],[294,361,1.03]];
   const ease=x=>1-Math.pow(1-x,3);
   const pop=x=>x>=1?1:1+2.2*Math.pow(x-1,3)+1.2*Math.pow(x-1,2);
@@ -112,9 +120,9 @@
       const a=adj[key], chars=[...value], n=chars.length, sz=size+a.size;
       const step=Math.min(span/Math.max(1,n-1), .1);
       ctx.save();
-      ctx.font=font.replace('{size}',sz);
+      ctx.font=chosenFont(key,sz);
       ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
-      const total=ctx.measureText(value).width, squeeze=Math.min(1,820/total);
+      const total=ctx.measureText(value).width+Math.max(0,n-1)*a.sp, squeeze=Math.min(1,820/total);
       ctx.translate(506+a.dx,y+a.dy); ctx.scale(squeeze,1);
       const grad=ctx.createLinearGradient(0,-sz*.42,0,sz*.42);
       grad.addColorStop(0,'#fcf4fc'); grad.addColorStop(1,'#d9a3e4');
@@ -122,7 +130,7 @@
       const glyphs=[];
       let before='';
       chars.forEach((ch,i)=>{
-        const cw=ctx.measureText(ch).width, x=ctx.measureText(before).width-total/2+cw/2;
+        const cw=ctx.measureText(ch).width, x=ctx.measureText(before).width+i*a.sp-total/2+cw/2;
         before+=ch;
         const k=progress(start+i*step,.12);
         if (k && ch.trim()) glyphs.push([ch,x,.3+.7*pop(k),Math.min(1,k*2.5)]);
@@ -178,11 +186,11 @@
     } catch { status('相片讀取失敗，請重新選擇。'); }
     finally { URL.revokeObjectURL(url); }
   };
-  function animate(s) {
+  function animate(s,onProgress) {
     return new Promise(resolve=>{
       const begin=performance.now();
       function frame(now) {
-        const t=(now-begin)/1000; draw(t,s);
+        const t=(now-begin)/1000; draw(t,s||details());if(onProgress)onProgress(t);
         if (t<5) requestAnimationFrame(frame); else resolve();
       }
       requestAnimationFrame(frame);
@@ -190,23 +198,32 @@
   }
   function lock(value) {
     busy=value;
-    panel.querySelectorAll('input,select,button').forEach(el=>el.disabled=value);
+    // Only disable export actions while encoding; keep fields and photo controls responsive.
+    ['png','video','save'].forEach(id=>{const el=field(id);if(el)el.disabled=value;});
   }
   async function run(mode) {
     if (busy) return;
     const s=details();
     if (mode!=='play' && (!model.photo || !s.name || !s.ig || !s.date)) {status('請先選擇相片，並填寫名字、IG 和日期。');return;}
-    lock(true);
+    if(mode!=='play'){
+      lock(true);window.qgWorkflow?.progress('shadow',3,'準備匯出');
+    }
     let stream, recorder;
     try {
       await start(); if (!images) return;
       await Promise.all([document.fonts.load(NAME_FONT.replace('{size}',120),s.name||'影'),document.fonts.load('bold 50px '+FONT_HAND,'Date '+s.ig)]);
       const filename='影子精靈_'+s.name.replace(/[^\p{L}\p{N}_.-]/gu,'_');
-      if (mode==='play') { await animate(s); return; }
+      if (mode==='play') { await animate(); return; }
       if (mode==='png') {
         draw(5,s);
         const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
-        if (await saveBlob(blob,filename+'.png',status)) openPromo(s,caption(s));
+        window.qgWorkflow?.progress('shadow',75,'儲存本機記錄');
+        await window.qgWorkflow?.record('shadow',{name:field('name').value,ig:field('ig').value,date:field('date').value,zoom:model.zoom,dx:model.dx,dy:model.dy,adj:model.adj,font:model.font},canvas,model.photo);
+        window.qgWorkflow?.progress('shadow',85,'準備儲存圖片');
+        if (await saveBlob(blob,filename+'.png',status)){
+          window.qgWorkflow?.finish('shadow',true,'圖片已準備好');
+          openPromo(s,caption(s));
+        }else window.qgWorkflow?.fail('shadow','已取消下載');
         return;
       }
       const mime=pickMime();
@@ -217,14 +234,16 @@
       const chunks=[]; recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
       const finished=new Promise((resolve,reject)=>{recorder.onstop=resolve; recorder.onerror=()=>reject(Error('錄影中斷，請再試一次。'));});
       recorder.start(); status('錄影中…約 5 秒');
-      await Promise.all([animate(s).then(()=>{if(recorder.state==='recording')recorder.stop();}),finished]);
+      await Promise.all([animate(s,t=>window.qgWorkflow?.progress('shadow',Math.min(90,Math.round(5+85*t/5)),'正在錄製影片')).then(()=>{if(recorder.state==='recording')recorder.stop();}),finished]);
       const type=recorder.mimeType || chunks[0]?.type;
       if (!chunks.length || !type) throw Error('影片未能產生，請再試一次。');
       const ext=type.includes('mp4')?'mp4':'webm';
       pending={blob:new Blob(chunks,{type:type.split(';')[0]}),filename:filename+'.'+ext,s};
+      await window.qgWorkflow?.record('shadow',{name:field('name').value,ig:field('ig').value,date:field('date').value,zoom:model.zoom,dx:model.dx,dy:model.dy,adj:model.adj,font:model.font},canvas,model.photo);
       field('save').hidden=false; status('影片已準備好（'+ext.toUpperCase()+'）');
-    } catch(err) { status(err.message || '匯出失敗，請再試一次。'); }
-    finally { stream?.getTracks().forEach(track=>track.stop()); lock(false); draw(); }
+      window.qgWorkflow?.progress('shadow',95,'影片已錄好，請儲存');
+    } catch(err) { status(err.message || '匯出失敗，請再試一次。');if(mode!=='play')window.qgWorkflow?.fail('shadow','匯出失敗'); }
+    finally { stream?.getTracks().forEach(track=>track.stop()); if(mode!=='play')lock(false); draw(); }
   }
   field('play').onclick=()=>run('play');
   field('png').onclick=()=>run('png');
@@ -232,7 +251,10 @@
   field('video').onclick=()=>run('video');
   field('save').onclick=async()=>{
     const v=pending;
-    if(v && await saveBlob(v.blob,v.filename,status)) openPromo(v.s,caption(v.s));
+    if(v && await saveBlob(v.blob,v.filename,status)){
+      window.qgWorkflow?.finish('shadow',true,'影片已儲存');
+      openPromo(v.s,caption(v.s));
+    }else window.qgWorkflow?.fail('shadow','已取消儲存');
   };
   window.qgShadow={start,draw,busy:()=>busy,model,redraw,refreshControls,saveLayout:layout.save};
   if(!panel.hidden) start();

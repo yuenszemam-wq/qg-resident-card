@@ -198,7 +198,7 @@
   <button role="tab" id="tabBtnCalendar" data-tab="calendar" aria-selected="false">📅 QG月曆</button></nav>
 
   <section class="tab" id="tab-promo" role="tabpanel" aria-labelledby="tabBtnPromo">
-  <h1>Queen's Garden</h1>
+  <h1>限定居民宣傳</h1>
 <div class="promo-top">  <div class="stage" id="stage">
     <canvas id="cv" width="1012" height="1350"></canvas>
     <div class="hint" id="hint">選好相片後，可以用手指拖動或兩指縮放</div>
@@ -881,7 +881,6 @@ function drawPreview(){
   pctx.restore();
 }
 function openEditor(){
-  if(playing) return;
   // 預設選第一段有內容的文字
   if(!state[edKey]) edKey = (ADJ_ITEMS.find(([k])=>state[k])||ADJ_ITEMS[0])[0];
   edOpen = true;
@@ -934,7 +933,7 @@ function clampPos(){
 }
 
 // 給共用放大照片編輯器使用：沿用此頁既有位置與縮放數據
-window.qgPromoView = {state, render, clampPos, box:PHOTO_BOX, canvas:cv, busy:()=>playing};
+window.qgPromoView = {state, render, clampPos, box:PHOTO_BOX, canvas:cv, saveLayout:promoLayout.save, busy:()=>promoExporting};
 
 // 拖動 / 兩指縮放
 const pts = new Map(); let pinch = null;
@@ -980,9 +979,10 @@ function playOnce(onFrame){
 $('play').addEventListener('click', async ()=>{
   if(playing) return;
   await ensureFonts();
-  setBusy(true); await playOnce(); setBusy(false); render(0,true);
+  await playOnce(); render(0,true);
 });
-function setBusy(b){ ['play','png','mp4','adjOpen'].forEach(id=>$(id).disabled=b); }
+let promoExporting=false;
+function setBusy(b){ promoExporting=b; ['play','png','mp4','saveVid'].forEach(id=>$(id).disabled=b); }
 
 // ---------- 儲存 ----------
 const status = m => $('status').textContent = m||'';
@@ -1026,18 +1026,26 @@ function checkPromoReady(){
 }
 
 $('png').addEventListener('click', async ()=>{
-  if(playing || !checkReady() || !checkPromoReady()) return;
+  if(!checkReady() || !checkPromoReady())return;
+  if(playing){status('動畫預覽中，結束後可再次下載');return;}
   // 圖片和文案用同一份資料快照
   const snap = {name:state.name, ig:state.ig, date:state.displayDate || state.date};
-  setBusy(true);
+  setBusy(true); window.qgWorkflow?.progress('promo',4,'生成圖片中');
   try{
     await ensureFonts(); render(0,true);
+    window.qgWorkflow?.progress('promo',55,'正在編碼 PNG');
     const blob = await new Promise(r=>cv.toBlob(r, 'image/png'));
     if(!blob){ status('圖片生成失敗，請再試一次'); return; }
+    window.qgWorkflow?.progress('promo',80,'儲存本機記錄');
+    await window.qgWorkflow?.record('promo',{name:state.name,ig:state.ig,date:$('date').value,zoom:state.zoom,dx:state.dx,dy:state.dy,adj:state.adj,font:state.font},cv,state.photo);
+    window.qgWorkflow?.progress('promo',90,'準備儲存');
     const ok = await saveBlob(blob, baseName()+'.png');
-    if(ok) openPromo(snap);
+    if(ok){
+      window.qgWorkflow?.finish('promo',true,'圖片已準備好');
+      openPromo(snap);
+    }else window.qgWorkflow?.fail('promo','已取消下載');
   }catch(err){
-    status('圖片生成失敗，請再試一次');
+    status('圖片生成失敗，請再試一次');window.qgWorkflow?.fail('promo','圖片生成失敗');
   }finally{ setBusy(false); }
 });
 
@@ -1076,6 +1084,7 @@ function openPromo(snap, customText){
   $('promoTitle').textContent = customText ? '🌙 影子精靈宣傳文案' : '🔮 限定居民宣傳文案';
   promoCurrent = customText ?? promoText(snap);
   $('promoText').textContent = promoCurrent;
+  window.qgWorkflow?.caption(customText?'shadow':'promo', $('promoTitle').textContent, promoCurrent);
   $('promoText').scrollTop = 0;
   $('promoCopy').textContent = '複製全文';
   setCopyMsg('');
@@ -1120,7 +1129,8 @@ function pickMime(){
   return list.find(m=>{ try{ return MediaRecorder.isTypeSupported(m); }catch(e){ return false; } }) || '';
 }
 $('mp4').addEventListener('click', async ()=>{
-  if(!checkReady() || playing) return;
+  if(!checkReady())return;
+  if(playing){status('動畫預覽中，結束後可再次下載');return;}
   const mime = pickMime();
   if(mime===null || !cv.captureStream){ status('這個瀏覽器不支援錄影，請改用 iPhone Safari 或電腦版 Chrome'); return; }
   await ensureFonts();
@@ -1128,6 +1138,7 @@ $('mp4').addEventListener('click', async ()=>{
   const snap = {name:state.name, ig:state.ig, date:state.displayDate || state.date};
   $('saveBox').classList.remove('on'); pendingVideo = null;
   setBusy(true); $('rec').classList.add('on'); status('錄影中…約 5 秒');
+  window.qgWorkflow?.progress('promo',2,'開始錄影');
   const stream = cv.captureStream(30);
   let rec;
   try{ rec = new MediaRecorder(stream, mime ? {mimeType:mime, videoBitsPerSecond:8_000_000} : {videoBitsPerSecond:8_000_000}); }
@@ -1141,7 +1152,7 @@ $('mp4').addEventListener('click', async ()=>{
   rec.start(100);
   const holdEnd = performance.now()+250;
   await new Promise(r=>{ (function hold(){ render(0); if(performance.now()<holdEnd) requestAnimationFrame(hold); else r(); })(); });
-  await playOnce();
+  await playOnce(t=>window.qgWorkflow?.progress('promo',Math.min(90,Math.round(6+84*t/5)),'正在錄製影片'));
   // 最後停留一點點，確保最後一格被錄到
   await new Promise(r=>setTimeout(r,150));
   rec.stop(); await stopped;
@@ -1150,6 +1161,8 @@ $('mp4').addEventListener('click', async ()=>{
   const type = rec.mimeType || mime || 'video/webm';
   const ext = type.includes('mp4') ? 'mp4' : 'webm';
   pendingVideo = { blob:new Blob(chunks,{type:type.split(';')[0]}), name:baseName()+'.'+ext, snap };
+  await window.qgWorkflow?.record('promo',{name:state.name,ig:state.ig,date:$('date').value,zoom:state.zoom,dx:state.dx,dy:state.dy,adj:state.adj,font:state.font},cv,state.photo);
+  window.qgWorkflow?.progress('promo',95,'影片已錄好，請按儲存');
   status('錄好了！按下面的按鈕儲存' + (ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
   $('saveBox').classList.add('on');
 });
@@ -1158,7 +1171,9 @@ $('saveVid').addEventListener('click', async ()=>{
   const v = pendingVideo;
   const ok = await saveBlob(v.blob, v.name);
   // 儲存後同樣彈出宣傳文案（需要有 IG 和日期）
-  if(ok && v.snap.ig && v.snap.date) openPromo(v.snap);
+  if(ok){window.qgWorkflow?.finish('promo',true,'影片已儲存');
+    if(v.snap.ig && v.snap.date) openPromo(v.snap);
+  }else window.qgWorkflow?.fail('promo','已取消儲存');
 });
 
 // ---------- 開始 ----------
@@ -1565,7 +1580,6 @@ function syncEd(){
   syncZoom();
 }
 function openEd(mode){
-  if(playing) return;
   edMode = mode; edOpen = true;
   $('wkEd').hidden = false;
   document.body.style.overflow = 'hidden';
@@ -1573,7 +1587,6 @@ function openEd(mode){
   requestAnimationFrame(()=>{ sizePreview(); still(); });
 }
 function closeEd(){
-  if(playing) return;
   edOpen = false;
   $('wkEd').hidden = true;
   document.body.style.overflow = '';
@@ -1630,7 +1643,6 @@ $('wkResetText').addEventListener('click', ()=>{
   const pts = new Map(); let pinch = null, drag = null;
   const k = ()=> W/pv.getBoundingClientRect().width;
   pv.addEventListener('pointerdown', e=>{
-    if(playing) return;
     if(edMode==='photo' && !state.photo) return;
     if(edMode==='text' && !state.text) return;
     pv.setPointerCapture(e.pointerId);
@@ -1671,21 +1683,24 @@ function updateSum(){
 
 // ---------- 播放 ----------
 const DURATION = 5;
-function playOnce(){
+function playOnce(onFrame){
   return new Promise(res=>{
     playing = true;
     const t0 = performance.now();
     function step(now){
       const t = (now-t0)/1000;
       render(Math.min(t,DURATION));
+      if(onFrame)onFrame(t);
       if(t < DURATION) requestAnimationFrame(step);
       else { playing = false; res(); }
     }
     requestAnimationFrame(step);
   });
 }
+let weeklyExporting=false;
 const BUSY_IDS = ['wkPlay','wkPng','wkMp4','wkPrev','wkNext','wkStart','wkEnd','wkPhoto','wkPhoto2','wkThumb','wkOpenPhoto','wkOpenText','wkEdPlay','wkEdDone'];
 function setBusy(b){
+  weeklyExporting=b;
   BUSY_IDS.forEach(id=>$(id).disabled=b);
   $('wkHist').querySelectorAll('button').forEach(x=>x.disabled=b);
 }
@@ -1704,33 +1719,38 @@ function baseName(){
 async function preview(){
   if(playing || !assetsReady) return;
   await ensureFont(); layout = null;
-  setBusy(true); await playOnce(); setBusy(false); render(0,true);
+  await playOnce(); render(0,true);
 }
 $('wkPlay').addEventListener('click', preview);
 $('wkEdPlay').addEventListener('click', preview);
 $('wkPng').addEventListener('click', async ()=>{
-  if(playing || !ready()) return;
-  setBusy(true);
+  if(!ready())return;
+  if(playing){say('動畫預覽中，結束後再按下載');return;}
+  setBusy(true); window.qgWorkflow?.progress('weekly',5,'正在生成更表圖片');
   let ok = false;
   try{
     await ensureFont(); layout = null; render(0,true);
     const blob = await new Promise(r=>cv.toBlob(r,'image/png'));
     if(!blob){ say('圖片生成失敗，請再試一次'); return; }
+    window.qgWorkflow?.progress('weekly',85,'準備下載圖片');
     ok = await saveBlob(blob, baseName()+'.png', say);
   }catch(err){ say('圖片生成失敗，請再試一次'); }
   finally{ setBusy(false); }
-  if(ok) saveHistory();
+  if(ok){window.qgWorkflow?.finish('weekly',true,'圖片已準備好');saveHistory();}
+  else window.qgWorkflow?.fail('weekly','未能下載圖片');
 });
 
 let pendingVideo = null;
 $('wkMp4').addEventListener('click', async ()=>{
-  if(playing || !ready()) return;
+  if(!ready())return;
+  if(playing){say('動畫預覽中，結束後再按下載');return;}
   const mime = pickMime();
   if(mime===null || !cv.captureStream){ say('這個瀏覽器不支援錄影，請改用 iPhone Safari 或電腦版 Chrome'); return; }
   await ensureFont(); layout = null;
   const name = baseName();
   $('wkSaveBox').classList.remove('on'); pendingVideo = null;
   setBusy(true); $('wkRec').classList.add('on'); say('錄影中…約 5 秒');
+  window.qgWorkflow?.progress('weekly',3,'開始錄影');
   const stream = cv.captureStream(30);
   let rec;
   try{ rec = new MediaRecorder(stream, mime ? {mimeType:mime, videoBitsPerSecond:8_000_000} : {videoBitsPerSecond:8_000_000}); }
@@ -1744,7 +1764,7 @@ $('wkMp4').addEventListener('click', async ()=>{
   // 開頭只停約 0.08 秒（之前 0.25 秒令動畫比 Canva 原片遲開始）
   const holdEnd = performance.now()+80;
   await new Promise(r=>{ (function hold(){ render(0); if(performance.now()<holdEnd) requestAnimationFrame(hold); else r(); })(); });
-  await playOnce();
+  await playOnce(t=>window.qgWorkflow?.progress('weekly',Math.min(90,Math.round(6+84*t/5)),'正在錄製影片'));
   await new Promise(r=>setTimeout(r,150));
   rec.stop(); await stopped;
   stream.getTracks().forEach(t=>t.stop());
@@ -1752,12 +1772,13 @@ $('wkMp4').addEventListener('click', async ()=>{
   const type = rec.mimeType || mime || 'video/webm';
   const ext = type.includes('mp4') ? 'mp4' : 'webm';
   pendingVideo = { blob:new Blob(chunks,{type:type.split(';')[0]}), name:name+'.'+ext };
+  window.qgWorkflow?.progress('weekly',95,'影片錄製完成，請儲存');
   say('錄好了！按下面的按鈕儲存' + (ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
   $('wkSaveBox').classList.add('on');
   saveHistory();
 });
 $('wkSaveVid').addEventListener('click', async ()=>{
-  if(pendingVideo) await saveBlob(pendingVideo.blob, pendingVideo.name, say);
+  if(pendingVideo){const ok=await saveBlob(pendingVideo.blob, pendingVideo.name, say);if(ok)window.qgWorkflow?.finish('weekly',true,'影片已儲存');else window.qgWorkflow?.fail('weekly','未能儲存影片');}
 });
 
 // ---------- 最近 10 次更表記錄（只存在這部裝置的瀏覽器 IndexedDB） ----------
@@ -1872,7 +1893,7 @@ function start(){
     })
     .catch(()=>{ started = false; say('素材載入失敗，請重新整理頁面'); });
 }
-window.qgWeekly = { start, isBusy:()=>playing, render, state, DATE, resetLayout:()=>{ layout = null; } };
+window.qgWeekly = { start, isBusy:()=>weeklyExporting, render, state, DATE, resetLayout:()=>{ layout = null; } };
 })();
 
 // ================= 分頁切換 =================
@@ -1889,8 +1910,8 @@ window.qgWeekly = { start, isBusy:()=>playing, render, state, DATE, resetLayout:
     window.scrollTo(0,0);
   }
   btns.forEach(b=>b.addEventListener('click', ()=>{
-    // 錄影或播放中不可以轉分頁
-    if(playing || window.qgWeekly.isBusy() || window.qgShadow?.busy()) return;
+    // Only encoding/exporting blocks navigation. Preview playback does not lock other tabs.
+    if(window.qgPromoView?.busy() || window.qgWeekly.isBusy() || window.qgShadow?.busy()) return;
     show(b.dataset.tab, true);
   }));
   show((location.hash||'').slice(1), false);
@@ -1899,5 +1920,6 @@ window.qgWeekly = { start, isBusy:()=>playing, render, state, DATE, resetLayout:
 <script src="shadow/editor.js"></script>
 <script src="calendar/calendar.js"></script>
 <script src="ui/unified-editors.js"></script>
+<script src="ui/workflow.js"></script>
 </body>
 </html>
