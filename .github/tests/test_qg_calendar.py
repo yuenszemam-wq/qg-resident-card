@@ -73,6 +73,22 @@ def verify(browser):
         return copy.toDataURL() === canvas.toDataURL();
     }""", base64.b64encode(exported).decode())
     page.locator("#tabBtnPromo").click()
+    # Guard against the iPhone UI regression: a full-width canvas previously
+    # squeezed the upload/edit buttons into a vertical sliver.
+    def assert_two_columns(tab, canvas_id):
+        box = page.locator(f"{tab} .promo-top").bounding_box()
+        image = page.locator(f"{tab} .stage").bounding_box()
+        actions = page.locator(f"{tab} .promo-tools").bounding_box()
+        assert box and image and actions, f"Missing card controls: {tab}"
+        assert image["width"] >= 120 and actions["width"] >= 135, (
+            f"Card controls collapsed: {tab}, image={image}, actions={actions}"
+        )
+        assert image["x"] + image["width"] < actions["x"] + 6, (
+            f"Columns overlap: {tab}, image={image}, actions={actions}"
+        )
+        assert actions["x"] + actions["width"] <= box["x"] + box["width"] + 2
+        assert page.locator(canvas_id).is_visible()
+    assert_two_columns("#tab-promo", "#cv")
     page.locator("#photo").set_input_files(ROOT / "calendar/icon.png")
     page.locator("#name").fill("幽月")
     page.locator("#ig").fill("qg_test")
@@ -90,6 +106,7 @@ def verify(browser):
     page.locator("#promoPhotoEditor [data-close]").click()
     expect(page.locator("#promoPhotoEditor")).to_be_hidden()
     page.locator("#tabBtnShadow").click()
+    assert_two_columns("#tab-shadow", "#sh-preview")
     page.locator("#shOpenText").click()
     expect(page.locator("#shEditor")).to_be_visible()
     page.locator("#shEditor [data-close]").click()
