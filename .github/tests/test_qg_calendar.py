@@ -56,21 +56,12 @@ def verify(browser):
     with page.expect_download() as backup:
         page.locator("#cal-export").click()
     assert json.loads(backup.value.path().read_bytes())["months"] == {"2026-06":[1,3],"2028-02":[29]}
-    # Independent history writer diagnostic before download.
-    page.evaluate("""async () => await window.qgWorkflow.record('calendar',{year:'2026',month:'6',days:[1]},document.getElementById('cal-preview'))""")
-    print("CAL_BEFORE_DOWNLOAD",page.locator("#tab-calendar .qg-hist-list").inner_text())
-    page.on("framenavigated",lambda frame: print("CAL_NAV",frame.url))
     with page.expect_download() as png:
         save.click()
     assert png.value.suggested_filename == "QG-Calendar-2026-06.png"
     expect(page.locator("#qg-progress-calendar progress")).to_have_js_property("value",100)
-    print("CAL_HISTORY_DIAG",page.evaluate("""async () => {
-      const db = await new Promise((resolve,reject)=>{const r=indexedDB.open('qg-card-history-v1',1);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-      const items = await new Promise((resolve,reject)=>{const tx=db.transaction('records','readonly'),r=tx.objectStore('records').getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-      return {active:!!window.qgWorkflow,status:document.querySelector("#tab-calendar .qg-hist-status")?.textContent,count:document.querySelectorAll("#tab-calendar .qg-hist-row").length,items:items.map(x=>({id:x.id,template:x.template})),errors:[]}
-    }"""))
-
     expect(page.locator("#tab-calendar .qg-hist-load").first).to_be_visible()
+    expect(page.locator("#tab-calendar .qg-hist-load").first).to_contain_text("2026-06")
     exported = png.value.path().read_bytes()
     assert struct.unpack(">II",exported[16:24]) == (1080,1350)
     import base64
