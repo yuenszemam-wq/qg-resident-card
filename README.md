@@ -18,4 +18,5 @@
 - 名字用 Zen Kurenaido（Google Fonts，SIL OFL）再加粗，對照 Canva 原稿選出，缺字時退回 Chiron GoRound TC。Ma Shan Zheng 等簡體毛筆字缺「漿」「鈴」等繁體字，所以沒有採用。
 - IG 和日期用 Kalam 手寫字（`fonts/` 內的本地 WOFF2，授權見 `fonts/README.md`）。
 - 沒有使用或轉發任何 Canva 字體。
+- 影片動畫時序對照 Canva 原片：開頭只有背景和蕾絲；相片連名字一齊由細變大、由模糊變清；Queen's Garden 逐字由上跌下；日期逐字由下彈上。
 - 影片用瀏覽器內建錄影功能即時錄製：iPhone Safari 會輸出 MP4，部分瀏覽器只能輸出 WebM。
