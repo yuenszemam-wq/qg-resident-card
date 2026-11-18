@@ -1164,7 +1164,8 @@ const L = {
   bg:{f:'bg.jpg',x:0,y:0}, lace:{f:'lace.webp',x:38,y:265},
   mask:{f:'mask.png',x:210,y:307},
   pearl:{f:'pearl.webp',x:210,y:307}, emblem:{f:'emblem.webp',x:300,y:952},
-  keyL:{f:'keyL.webp',x:1,y:0}, keyR:{f:'keyR.webp',x:779,y:753},
+  // 兩條鑰匙按 Canva 原稿位置：一半出咗卡邊
+  keyL:{f:'keyL.webp',x:-102,y:-4}, keyR:{f:'keyR.webp',x:910,y:740},
   ribbon:{f:'ribbon.webp',x:75,y:54}, crown:{f:'crown.webp',x:364,y:167},
   qg:{f:'qg.webp',x:226,y:264}, yisj:{f:'yisj.webp',x:119,y:1238},
 };
@@ -1209,6 +1210,7 @@ function layer(key, alpha=1, o={}){
   g.save();
   g.translate(P.x + I.width/2 + (o.dx||0), P.y + I.height/2 + (o.dy||0));
   const s = o.scale||1; g.scale(s,s);
+  if(o.rot) g.rotate(o.rot);
   const bm = o.blur||0;
   g.imageSmoothingQuality = 'high';
   if(bm>0.003 && blurImg[key]){ g.globalAlpha = alpha*Math.min(1,bm*2); g.drawImage(blurImg[key], -I.width/2, -I.height/2, I.width, I.height); }
@@ -1229,12 +1231,34 @@ function sliced(key, cuts, fn){
   g.restore();
 }
 
-// 整組圖層一齊模糊、縮放（相片＋珍珠＋徽章）
+// 整組圖層一齊模糊、縮放（相片＋珍珠框；徽章）
 const fx = mkCanvas(W,H), fxc = fx.getContext('2d');
-const fxM = mkCanvas(Math.round(W/4), Math.round(H/4)), fxMc = fxM.getContext('2d');
-const fxS = mkCanvas(Math.round(W/26), Math.round(H/26)), fxSc = fxS.getContext('2d');
-const fxU = mkCanvas(Math.round(W/4), Math.round(H/4)), fxUc = fxU.getContext('2d');
-[fxMc, fxSc, fxUc].forEach(c=>{ c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; });
+// 柔和模糊：逐級縮細再逐級放大（近似高斯模糊，唔會有格仔），模糊程度可以連續變化
+const BLUR_LV = 7;
+const pyr = (k)=>{ const c = mkCanvas(Math.ceil(W/k), Math.ceil(H/k)), x = c.getContext('2d');
+  x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high'; return {c, x}; };
+const DOWN = Array.from({length:BLUR_LV}, (_,i)=>pyr(2**i));     // 第 i 級最大 W/2^i
+const UP = Array.from({length:BLUR_LV}, (_,i)=>pyr(2**(i+1)));   // 第 i 級 = W/2^(i+1)
+function softBlur(p){ // p = 0~BLUR_LV，數值越大越模糊
+  p = clamp(p/BLUR_LV)*BLUR_LV;
+  const n = Math.max(1, Math.ceil(p)), f = Math.pow(2, p);
+  let src = fx, sw = W, sh = H;
+  for(let i=1;i<=n;i++){
+    const k = i===n ? f : 2**i;
+    const tw = Math.max(2, Math.round(W/k)), th = Math.max(2, Math.round(H/k));
+    const d = DOWN[i-1];
+    d.x.clearRect(0,0,d.c.width,d.c.height);
+    d.x.drawImage(src, 0,0,sw,sh, 0,0,tw,th);
+    src = d.c; sw = tw; sh = th;
+  }
+  for(let i=n-1;i>=1;i--){
+    const u = UP[i-1], tw = Math.round(W/2**i), th = Math.round(H/2**i);
+    u.x.clearRect(0,0,u.c.width,u.c.height);
+    u.x.drawImage(src, 0,0,sw,sh, 0,0,tw,th);
+    src = u.c; sw = tw; sh = th;
+  }
+  return {c:src, w:sw, h:sh};
+}
 function group(fn, alpha, blur, scale, cx, cy){
   if(alpha<=0.003) return;
   if(alpha>=1 && blur<=0.003 && scale===1){ fn(); return; }
@@ -1245,15 +1269,10 @@ function group(fn, alpha, blur, scale, cx, cy){
   g.save();
   g.translate(cx,cy); g.scale(scale,scale); g.translate(-cx,-cy);
   g.imageSmoothingEnabled = true;
-  if(blur>0.003){
-    fxMc.clearRect(0,0,fxM.width,fxM.height); fxMc.drawImage(fx,0,0,fxM.width,fxM.height);
-    fxSc.clearRect(0,0,fxS.width,fxS.height); fxSc.drawImage(fxM,0,0,fxS.width,fxS.height);
-    fxUc.clearRect(0,0,fxU.width,fxU.height); fxUc.drawImage(fxS,0,0,fxU.width,fxU.height);
-    g.imageSmoothingQuality = 'high';
-    g.globalAlpha = alpha*Math.min(1, blur*2);
-    g.drawImage(fxU,0,0,W,H);
-  }
-  if(blur<1){ g.globalAlpha = alpha*(1-blur); g.drawImage(fx,0,0); }
+  g.imageSmoothingQuality = 'high';
+  g.globalAlpha = alpha;
+  if(blur>0.003){ const r = softBlur(blur*6.5); g.drawImage(r.c, 0,0,r.w,r.h, 0,0,W,H); }
+  else g.drawImage(fx,0,0);
   g.restore();
 }
 
@@ -1329,7 +1348,7 @@ function drawDate(t, final){
     bx0 = Math.min(bx0, px); bx1 = Math.max(bx1, px); by0 = Math.min(by0, py); by1 = Math.max(by1, py);
     let k = 1;
     if(!final){
-      const p = prog(t, 0.3 + i*0.052, 0.1);
+      const p = prog(t, 0.33 + i*0.056, 0.1); // 對照 Canva：0.33 秒起每字約 0.056 秒
       if(p<=0) return;
       k = easeBack(p, 2);
     }
@@ -1346,6 +1365,19 @@ function drawDate(t, final){
   if(bx1>bx0) dateBounds = {x:bx0-sz*0.45, y:by0-sz*0.6, w:bx1-bx0+sz*0.9, h:by1-by0+sz*1.2};
 }
 
+// 鑰匙扭擺：按 Canva 原片逐格量出的角度（度，正數 = 順時針），中間用平滑曲線連接
+const WIG = [[0,-6],[0.3,-4.5],[0.6,0.5],[1.0,6.5],[1.3,-1.5],[1.6,-5.5],[2.0,-3],[2.4,0.5],
+  [2.85,5],[3.4,4.2],[3.9,0.5],[4.5,-4.5],[5.0,-2],[5.6,2.5]];
+function wiggle(t){
+  const d = Math.PI/180;
+  if(t<=WIG[0][0]) return WIG[0][1]*d;
+  for(let i=1;i<WIG.length;i++){
+    const [t1,a1] = WIG[i], [t0,a0] = WIG[i-1];
+    if(t<=t1){ const p = (t-t0)/(t1-t0), k = p*p*(3-2*p); return (a0+(a1-a0)*k)*d; }
+  }
+  return WIG[WIG.length-1][1]*d;
+}
+
 // ---------- 畫面（t = 秒；final = 靜態完成圖） ----------
 function render(t, final=false){
   g = cardCtx;
@@ -1360,27 +1392,28 @@ function render(t, final=false){
     g.drawImage(img.lace, L.lace.x, L.lace.y);
     g.restore();
   }
-  // 左上鑰匙：由左邊淡入
-  const kl = easeOut(prog(t,0.05,0.3));
-  layer('keyL', kl, {dx:-36*(1-kl)});
-  // 右下鑰匙：1 秒左右由右邊淡入
-  const kr = easeOut(prog(t,0.88,0.35));
-  layer('keyR', kr, {dx:40*(1-kr)});
+  // 左上鑰匙：一開始由左邊平移入場（約 0.5 秒），之後一直左右扭擺
+  const kl = prog(t,0.03,0.47);
+  layer('keyL', easeOut(prog(t,0.03,0.3)), {dx:-90*(1-easeOut(kl)), rot: final ? 0 : wiggle(t)});
+  // 右下鑰匙：1.08 秒由右邊平移入場，扭擺方向同左上相反
+  const kr = prog(t,1.08,0.47);
+  layer('keyR', easeOut(prog(t,1.08,0.3)), {dx:90*(1-easeOut(kr)), rot: final ? 0 : -wiggle(t-1.05)});
 
-  // 相片：0.65 秒起由細變大、由模糊變清（前段保持很模糊，約 0.9 秒才轉清）
-  const pt = prog(t,0.65,0.32), pg = easeOut(pt);
+  // 相片連珍珠框：0.68 秒起由細變大、由很模糊慢慢變清（約 1.05 秒清晰）
+  const pt = prog(t,0.68,0.35);
   const gcx = BOX.x+BOX.w/2, gcy = BOX.y+BOX.h/2;
-  group(drawPhoto, prog(t,0.65,0.22), 1-Math.pow(pt,4), 0.85+0.15*pg, gcx, gcy);
-  // 珍珠框和徽章：相片差不多清晰時才出現
-  const pe = easeOut(prog(t,0.9,0.1));
-  group(()=>{ layer('pearl'); layer('emblem'); }, pe, 0.7*(1-pe), 0.97+0.03*pe, gcx, gcy);
+  group(()=>{ drawPhoto(); layer('pearl'); }, prog(t,0.68,0.2), Math.pow(1-pt,0.6), 0.82+0.18*easeOut(pt), gcx, gcy);
+  // 徽章：0.93 秒「湧出」：淡入、由細彈大
+  const ep = prog(t,0.93,0.3);
+  const ecx = L.emblem.x + img.emblem.width/2, ecy = L.emblem.y + img.emblem.height/2;
+  group(()=>layer('emblem'), easeOut(prog(t,0.93,0.22)), 0.45*(1-prog(t,0.93,0.2)), 0.78+0.22*easeBack(ep,1.7), ecx, ecy);
 
-  // 皇冠：0.42 秒淡入
-  const cr = easeOut(prog(t,0.42,0.18));
-  layer('crown', cr, {blur:1-cr});
-  // 彩帶：0.13 秒起由細變大、由模糊變清（稍為由左邊移入），約 0.43 秒變清
-  const rp = prog(t,0.13,0.3), rb = easeOut(rp);
-  layer('ribbon', prog(t,0.13,0.25), {blur:1-rp, dx:-50*(1-rb), scale:0.85+0.15*rb});
+  // 皇冠：0.36 秒起由下面升上、慢慢淡入（約 0.65 秒到位）
+  const cr = prog(t,0.36,0.3);
+  layer('crown', prog(t,0.36,0.26), {dy:40*(1-easeOut(cr))});
+  // 彩帶：0.13 秒起由細變大、由模糊變清（稍為由左邊移入），約 0.5 秒變清
+  const rp = prog(t,0.13,0.37), rb = easeOut(rp);
+  layer('ribbon', prog(t,0.13,0.25), {blur:1-Math.pow(rp,2.5), dx:-50*(1-rb), scale:0.85+0.15*rb});
   // 日期：逐字彈出，之後不停輕輕放大縮小
   drawDate(t, final);
   // Queen's Garden：逐字由上方跌下（0.5 秒起，每字約 0.067 秒，空格停一格）
@@ -1388,9 +1421,9 @@ function render(t, final=false){
     const st = 0.5 + (i + (i>=7?1:0))*0.0667;
     return {a: prog(t,st,0.03), dy: -14*(1-easeOut(prog(t,st,0.12)))};
   });
-  // 異世界居民出沒啟示錄：逐字由下方升上（1.06 秒起，每字約 0.068 秒）
+  // 異世界居民出沒啟示錄：逐字由下方升上（1.06 秒起，每字約 0.074 秒）
   sliced('yisj', YISJ_CUTS, i=>{
-    const st = 1.06 + i*0.068;
+    const st = 1.06 + i*0.074;
     return {a: prog(t,st,0.03), dy: 18*(1-easeOut(prog(t,st,0.12)))};
   });
   mirror();
@@ -1687,7 +1720,8 @@ $('wkMp4').addEventListener('click', async ()=>{
   playing = true; render(0);
   await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
   rec.start(100);
-  const holdEnd = performance.now()+250;
+  // 開頭只停約 0.08 秒（之前 0.25 秒令動畫比 Canva 原片遲開始）
+  const holdEnd = performance.now()+80;
   await new Promise(r=>{ (function hold(){ render(0); if(performance.now()<holdEnd) requestAnimationFrame(hold); else r(); })(); });
   await playOnce();
   await new Promise(r=>setTimeout(r,150));
