@@ -217,11 +217,12 @@
       if (mode==='png') {
         draw(5,s);
         const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+        window.qgWorkflow?.progress('shadow',75,'儲存本機記錄');
+        await window.qgWorkflow?.record('shadow',{name:field('name').value,ig:field('ig').value,date:field('date').value,zoom:model.zoom,dx:model.dx,dy:model.dy,adj:model.adj,font:model.font},canvas,model.photo);
         window.qgWorkflow?.progress('shadow',85,'準備儲存圖片');
         if (await saveBlob(blob,filename+'.png',status)){
           window.qgWorkflow?.finish('shadow',true,'圖片已準備好');
           openPromo(s,caption(s));
-          window.qgWorkflow?.record('shadow',{name:field('name').value,ig:field('ig').value,date:field('date').value,zoom:model.zoom,dx:model.dx,dy:model.dy,adj:model.adj,font:model.font},canvas,model.photo);
         }else window.qgWorkflow?.fail('shadow','已取消下載');
         return;
       }
@@ -238,6 +239,7 @@
       if (!chunks.length || !type) throw Error('影片未能產生，請再試一次。');
       const ext=type.includes('mp4')?'mp4':'webm';
       pending={blob:new Blob(chunks,{type:type.split(';')[0]}),filename:filename+'.'+ext,s};
+      await window.qgWorkflow?.record('shadow',{name:field('name').value,ig:field('ig').value,date:field('date').value,zoom:model.zoom,dx:model.dx,dy:model.dy,adj:model.adj,font:model.font},canvas,model.photo);
       field('save').hidden=false; status('影片已準備好（'+ext.toUpperCase()+'）');
       window.qgWorkflow?.progress('shadow',95,'影片已錄好，請儲存');
     } catch(err) { status(err.message || '匯出失敗，請再試一次。');if(mode!=='play')window.qgWorkflow?.fail('shadow','匯出失敗'); }
@@ -252,7 +254,6 @@
     if(v && await saveBlob(v.blob,v.filename,status)){
       window.qgWorkflow?.finish('shadow',true,'影片已儲存');
       openPromo(v.s,caption(v.s));
-      window.qgWorkflow?.record('shadow',{name:field('name').value,ig:field('ig').value,date:field('date').value,zoom:model.zoom,dx:model.dx,dy:model.dy,adj:model.adj,font:model.font},canvas,model.photo);
     }else window.qgWorkflow?.fail('shadow','已取消儲存');
   };
   window.qgShadow={start,draw,busy:()=>busy,model,redraw,refreshControls,saveLayout:layout.save};
