@@ -99,7 +99,7 @@
       const ok = await saveBlob(blob, filename, message);
       if(ok){
         window.qgWorkflow?.finish('calendar',true,'月曆已準備好');
-        window.qgWorkflow?.record('calendar',{year:year.value,month:month.value,days},canvas);
+        await window.qgWorkflow?.record('calendar',{year:year.value,month:month.value,days},canvas);
       }else window.qgWorkflow?.fail('calendar','已取消下載');
     } catch (error) { message(error.message); window.qgWorkflow?.fail('calendar','圖片產生失敗'); }
   };
