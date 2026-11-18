@@ -173,8 +173,6 @@
   .wk-nav{margin-top:10px}
   .wk-btns{margin-top:12px}
   .seg.two{grid-template-columns:1fr 1fr}
-  .wk-file2{display:flex;align-items:center;justify-content:center;margin:0;color:var(--muted)}
-  #wkPv{display:block;border-radius:10px;border:1px solid var(--line);background:#000;touch-action:none}
   .wk-hist{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
   .wk-hi{position:relative}
   .wk-hi>button.go{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;
@@ -198,82 +196,78 @@
   <button role="tab" id="tabBtnCalendar" data-tab="calendar" aria-selected="false">📅 QG月曆</button></nav>
 
   <section class="tab" id="tab-promo" role="tabpanel" aria-labelledby="tabBtnPromo">
-  <h1>限定居民宣傳</h1>
-<div class="promo-top">  <div class="stage" id="stage">
-    <canvas id="cv" width="1012" height="1350"></canvas>
-    <div class="hint" id="hint">選好相片後，可以用手指拖動或兩指縮放</div>
-    <div class="rec" id="rec">● 錄影中</div>
-  </div>
+    <h1 class="wk-h1">限定居民宣傳</h1>
 
-<div class="promo-tools"><label class="file">📷 選擇相片<input type="file" id="photo" accept="image/*"></label>
-    <details><summary>調整相片位置</summary><div class="zoom">
-      <span style="font-size:13px;color:var(--muted)">縮放</span>
-      <input type="range" id="zoom" min="1" max="3" step="0.01" value="1">
-      <button class="small" id="reset">重設位置</button>
-    </div></details>    <button class="adj-open" id="adjOpen"><span>✏️</span><span class="t">文字微調</span><span class="go">›</span></button>
-    <div class="adj-sum" id="adjSum"></div>
-    <button class="btn full" id="play">▶ 預覽動畫</button></div></div><div class="panel promo-fields">
-    <label for="name">2. 名字</label>
-    <input type="text" id="name" placeholder="例如：豆漿" autocomplete="off">
-
-    <label for="ig">3. IG</label>
-    <input type="text" id="ig" placeholder="例如：@baylene._.cos" autocomplete="off" autocapitalize="off" spellcheck="false">
-
-    <div class="row">
-      <div>
-        <label for="date">4. 日期（點選日曆）</label>
-        <input type="date" id="date" required aria-label="限定居民出沒日期">
+    <div class="wk-top">
+      <button class="wk-thumb" id="stage" type="button" aria-label="放大預覽及調整相片">
+        <canvas id="cv" width="1012" height="1350"></canvas>
+        <span class="zoomtag">🔍 按此放大</span>
+        <span class="rec" id="rec">● 錄影中</span>
+      </button>
+      <div class="wk-side">
+        <label class="file">📷 選擇相片<input type="file" id="photo" accept="image/*"></label>
+        <button class="adj-open" id="openPhoto" type="button"><span>🖼️</span><span class="t">調整相片位置</span><span class="go">›</span></button>
+        <button class="adj-open" id="adjOpen" type="button"><span>✏️</span><span class="t">文字微調</span><span class="go">›</span></button>
+        <button class="btn" id="play" type="button">▶ 預覽動畫</button>
+        <div class="adj-sum" id="adjSum"></div>
       </div>
-
     </div>
-    <div class="dateout" id="dateout"></div>
-  </div>
 
-  <div class="editor" id="editor" hidden role="dialog" aria-modal="true" aria-labelledby="edTitle">
-    <div class="ed-head">
-      <h2 id="edTitle">文字微調</h2>
-      <button class="small" id="edZoom">🔍 放大文字</button>
-      <button class="ed-done" id="edDone">完成</button>
+    <div class="panel wk-panel qg-fields">
+      <label for="name">名字</label>
+      <label for="ig">IG</label>
+      <input type="text" id="name" placeholder="例如：豆漿" autocomplete="off">
+      <input type="text" id="ig" placeholder="例如：@baylene._.cos" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <label for="date" class="wide">日期（點選日曆）</label>
+      <input type="date" id="date" class="wide" required aria-label="限定居民出沒日期">
+      <div class="dateout wide" id="dateout"></div>
     </div>
-    <div class="ed-view" id="edView">
-      <canvas id="pv" aria-label="即時預覽"></canvas>
+
+    <div class="btns wk-btns">
+      <button class="btn primary" id="png" type="button">下載圖片 PNG</button>
+      <button class="btn primary" id="mp4" type="button">下載影片（5 秒）</button>
     </div>
-    <div class="ed-ctrl"><div>
-      <div class="ed-tip" id="edTip">可以直接在卡上拖動文字</div>
-      <div class="seg" id="edSeg" role="tablist"></div>
-      <label class="ed-font"><span>字體</span><select id="edFont" aria-label="字體"></select></label>
-      <div id="edRows"></div>
-      <div class="ed-foot">
-        <button class="small" id="edReset">重設名字</button>
-        <button class="small" id="edResetAll">全部重設</button>
-      </div>
-    </div></div>
-  </div>
+    <div class="status" id="status"></div>
+    <div class="save" id="saveBox"><button class="btn primary full" id="saveVid" type="button" style="width:100%">💾 儲存影片</button></div>
 
-  <div class="btns">
-
-    <button class="btn primary" id="png">下載圖片 PNG</button>
-    <button class="btn primary" id="mp4">下載影片（5 秒）</button>
-  </div>
-  <div class="status" id="status"></div>
-  <div class="save" id="saveBox"><button class="btn primary full" id="saveVid" style="width:100%">💾 儲存影片</button></div>
-
-  <p class="note">提示：影片是即時錄製的，按下後約 5 秒完成，錄影期間請不要離開這個頁面。字型是相近的網上字型，和 Canva 原版會有少少分別。</p>
+    <p class="note">選相片、填名字、IG 及日期後即可下載。圖片是 1012 × 1350 PNG；影片是 1080 × 1920、約 5 秒，即時錄製，錄影期間請不要離開這個頁面。下載後會彈出宣傳文案，關閉後亦可以在下面隨時複製。記錄只保存在這部裝置的瀏覽器。</p>
   </section>
 
   <section class="tab" id="tab-shadow" role="tabpanel" aria-labelledby="tabBtnShadow" hidden>
-    <h1>影子精靈</h1>
-    <div class="promo-top"><div class="stage"><canvas width="1012" height="1350" id="sh-preview" aria-label="影子精靈宣傳卡預覽"></canvas></div>
-    <div class="promo-tools"><label class="file">📷 選擇相片<input type="file" accept="image/*" id="sh-photo"></label>
-    <details><summary>調整相片位置</summary><div id="sh-crop"></div></details>
-    <details><summary>文字微調</summary><label>文字<select id="sh-target"><option value="name">名字</option><option value="ig">IG</option><option value="date">日期</option></select></label><div id="sh-adjust"></div></details>
-    <button class="btn" id="sh-play">▶ 預覽動畫</button></div></div>
-    <form class="panel promo-fields" id="sh-form"><label>名字<input required type="text" id="sh-name" placeholder="例如：Kiko"></label>
-    <label>IG<input required type="text" id="sh-ig" autocapitalize="off" spellcheck="false" placeholder="@c.kko_o"></label>
-    <label>出沒日期<input required type="date" id="sh-date"></label>
-    <button class="btn" type="button" id="sh-png">下載圖片</button><button class="btn primary" id="sh-video">製作動畫影片</button>
-    <button class="btn primary" type="button" id="sh-save" hidden>下載影片</button></form>
-    <p id="sh-status" role="status"></p>
+    <h1 class="wk-h1">影子精靈</h1>
+
+    <div class="wk-top">
+      <button class="wk-thumb" id="sh-thumb" type="button" aria-label="放大預覽及調整相片">
+        <canvas width="1012" height="1350" id="sh-preview" aria-label="影子精靈宣傳卡預覽"></canvas>
+        <span class="zoomtag">🔍 按此放大</span>
+        <span class="rec" id="sh-rec">● 錄影中</span>
+      </button>
+      <div class="wk-side">
+        <label class="file">📷 選擇相片<input type="file" accept="image/*" id="sh-photo"></label>
+        <button class="adj-open" id="shOpenPhoto" type="button"><span>🖼️</span><span class="t">調整相片位置</span><span class="go">›</span></button>
+        <button class="adj-open" id="shOpenText" type="button"><span>✏️</span><span class="t">文字微調</span><span class="go">›</span></button>
+        <button class="btn" id="sh-play" type="button">▶ 預覽動畫</button>
+        <div class="adj-sum" id="shSum"></div>
+      </div>
+    </div>
+
+    <div class="panel wk-panel qg-fields" id="sh-form">
+      <label for="sh-name">名字</label>
+      <label for="sh-ig">IG</label>
+      <input type="text" id="sh-name" placeholder="例如：Kiko" autocomplete="off">
+      <input type="text" id="sh-ig" placeholder="例如：@c.kko_o" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <label for="sh-date" class="wide">出沒日期（點選日曆）</label>
+      <input type="date" id="sh-date" class="wide">
+    </div>
+
+    <div class="btns wk-btns">
+      <button class="btn primary" id="sh-png" type="button">下載圖片 PNG</button>
+      <button class="btn primary" id="sh-video" type="button">下載影片（5 秒）</button>
+    </div>
+    <div class="status" id="sh-status" role="status"></div>
+    <div class="save" id="sh-saveBox"><button class="btn primary full" id="sh-save" type="button" style="width:100%">💾 儲存影片</button></div>
+
+    <p class="note">選相片、填名字、IG 及出沒日期後即可下載。圖片是 1012 × 1350 PNG；影片是 1080 × 1920、約 5 秒，即時錄製，錄影期間請不要離開這個頁面。下載後會彈出宣傳文案，關閉後亦可以在下面隨時複製。記錄只保存在這部裝置的瀏覽器。</p>
   </section>
   <section class="tab" id="tab-calendar" role="tabpanel" aria-labelledby="tabBtnCalendar" hidden>
     <h1>居民召喚月曆</h1>
@@ -333,44 +327,7 @@
       <div class="adj-sum" id="wkHistMsg"></div>
     </div>
 
-    <p class="note">揀開始日期後，結束日期會自動設為 6 日後，亦可以自己改。下載圖片或影片後會自動記錄（日期、相片、文字微調），按記錄可以重新載入。記錄只保存在這部裝置的瀏覽器。影片是即時錄製的，按下後約 5 秒完成，錄影期間請不要離開這個頁面。</p>
-
-    <div class="editor" id="wkEd" hidden role="dialog" aria-modal="true" aria-labelledby="wkEdTitle">
-      <div class="ed-head">
-        <h2 id="wkEdTitle">預覽及調整</h2>
-        <button class="small" id="wkEdPlay">▶ 播放</button>
-        <button class="ed-done" id="wkEdDone">完成</button>
-      </div>
-      <div class="ed-view" id="wkEdView">
-        <canvas id="wkPv" aria-label="即時預覽"></canvas>
-      </div>
-      <div class="ed-ctrl"><div>
-        <div class="seg two" id="wkEdSeg" role="tablist">
-          <button role="tab" data-m="photo">相片</button>
-          <button role="tab" data-m="text">文字</button>
-        </div>
-        <div id="wkCtlPhoto">
-          <div class="ed-tip" id="wkTipPhoto" style="margin:8px 0 0">用手指拖動相片，兩指縮放</div>
-          <div class="ed-row"><span>縮放</span>
-            <button class="step" data-z="-1" aria-label="縮細">−</button>
-            <input type="range" id="wkZoom" min="1" max="3" step="0.01" value="1" aria-label="縮放">
-            <button class="step" data-z="1" aria-label="放大">+</button>
-            <output id="wkZoomOut">100%</output></div>
-          <div class="ed-foot">
-            <label class="small wk-file2">📷 換相片<input type="file" id="wkPhoto2" accept="image/*" hidden></label>
-            <button class="small" id="wkResetPos">重設位置</button>
-          </div>
-        </div>
-        <div id="wkCtlText" hidden>
-          <div class="ed-tip" style="margin:8px 0 0">可以直接在卡上拖動日期</div>
-          <label class="ed-font"><span>字體</span><select id="wkFont" aria-label="字體"></select></label>
-          <div id="wkRows"></div>
-          <div class="ed-foot">
-            <button class="small" id="wkResetText">重設文字</button>
-          </div>
-        </div>
-      </div></div>
-    </div>
+    <p class="note">揀開始日期後，結束日期會自動設為 6 日後，亦可以自己改。下載圖片或影片後會自動記錄（日期、相片、文字微調），按記錄可以重新載入。記錄只保存在這部裝置的瀏覽器。影片是 1080 × 1920、約 5 秒，即時錄製，錄影期間請不要離開這個頁面。</p>
   </section>
 
   <div class="modal" id="promo" hidden role="dialog" aria-modal="true" aria-labelledby="promoTitle">
@@ -627,15 +584,15 @@ function drawFx(fn, alpha, blur, scale, cx, cy){
 }
 
 // ---------- 畫面（t = 秒；final = 靜態完成圖） ----------
-function render(t, final=false){
-  renderCard(t, final);
-  if(edOpen) drawPreview();
+function render(t, final=false, noBg=false){
+  renderCard(t, final, noBg);
 }
-function renderCard(t, final){
+function renderCard(t, final, noBg){
   if(final) t = 99;
   ctx.setTransform(1,0,0,1,0,0);
   ctx.globalAlpha = 1;
-  ctx.drawImage(img.bg, 0, 0, W, H);
+  // 影片：卡片背景由 1080×1920 全畫面背景取代（ui/video.js）
+  if(noBg) ctx.clearRect(0, 0, W, H); else ctx.drawImage(img.bg, 0, 0, W, H);
   // 圓形蕾絲：一直順時針慢慢轉（約每秒 18 度）
   drawLayer('lace', 1, {rot: final ? 0 : t*18*Math.PI/180});
 
@@ -742,170 +699,16 @@ function ensureFonts(){
   return fontPromise;
 }
 
-// ---------- 文字微調 ----------
+// ---------- 文字微調（共用「預覽及調整」編輯器，見 ui/editor.js） ----------
 const ADJ_ITEMS = [['name','名字'],['ig','IG'],['date','日期']];
 const ADJ_FIELDS = [['sp','字距',-20,60],['dx','左右',-200,200],['dy','上下',-120,120]];
-const ADJ_LABEL = Object.fromEntries(ADJ_ITEMS);
 const ADJ_RANGE = Object.fromEntries(ADJ_FIELDS.map(([f,,mn,mx])=>[f,[mn,mx]]));
-let edOpen = false, edKey = 'name', edZoom = false;
-const pv = $('pv'), pctx = pv.getContext('2d');
-// 預覽範圍：全卡，或放大到下半部文字區
-const viewRect = ()=> edZoom ? {x:100, y:860, w:W-200, h:H-860} : {x:0, y:0, w:W, h:H};
-
-function setAdj(k, f, v){
-  const [mn,mx] = ADJ_RANGE[f];
-  state.adj[k][f] = clamp(Math.round(v), mn, mx);
-  syncEditor(); updateAdjSum();
-  if(!playing) render(0,true);
-}
-function resetAdj(keys){
-  keys.forEach(k=>{ ADJ_FIELDS.forEach(([f])=>{ state.adj[k][f] = 0; }); state.font[k] = FONT_DEFAULT[k]; });
-  syncEditor(); updateAdjSum();
-  if(!playing) render(0,true);
-  ensureFonts().then(()=>{ if(!playing) render(0,true); });
-}
-function updateAdjSum(){
-  const changed = ADJ_ITEMS.filter(([k])=>ADJ_FIELDS.some(([f])=>state.adj[k][f]!==0) || state.font[k]!==FONT_DEFAULT[k]).map(i=>i[1]);
-  $('adjSum').textContent = changed.length ? '已調整：'+changed.join('、') : '未調整（原本位置）';
-  $('adjSum').classList.toggle('on', changed.length>0);
-}
-function syncEditor(){
-  $('edSeg').querySelectorAll('button').forEach(b=>{
-    const on = b.dataset.k===edKey; b.classList.toggle('on', on); b.setAttribute('aria-selected', on);
-  });
-  ADJ_FIELDS.forEach(([f])=>{
-    const v = state.adj[edKey][f];
-    $('ei_'+f).value = v; $('eo_'+f).textContent = v;
-  });
-  const sel = $('edFont');
-  if(sel.dataset.k!==edKey){ sel.innerHTML = fontList(edKey).map(f=>`<option value="${f.id}">${f.label}</option>`).join(''); sel.dataset.k = edKey; }
-  sel.value = state.font[edKey];
-  $('edReset').textContent = '重設'+ADJ_LABEL[edKey];
-  $('edZoom').textContent = edZoom ? '🔍 看全卡' : '🔍 放大文字';
-  $('edTip').textContent = state[edKey] ? '可以直接在卡上拖動文字' : '未輸入'+ADJ_LABEL[edKey]+'，先在上面填寫';
-}
-
-function buildEditor(){
-  $('edSeg').innerHTML = ADJ_ITEMS.map(([k,l])=>`<button role="tab" data-k="${k}">${l}</button>`).join('');
-  $('edRows').innerHTML = ADJ_FIELDS.map(([f,fl,mn,mx])=>
-    `<div class="ed-row"><span>${fl}</span>`+
-    `<button class="step" data-f="${f}" data-d="-1" aria-label="${fl}減少">−</button>`+
-    `<input type="range" id="ei_${f}" min="${mn}" max="${mx}" step="1" value="0" data-f="${f}" aria-label="${fl}">`+
-    `<button class="step" data-f="${f}" data-d="1" aria-label="${fl}增加">+</button>`+
-    `<output id="eo_${f}">0</output></div>`).join('');
-  $('edSeg').addEventListener('click', e=>{
-    const k = e.target.dataset && e.target.dataset.k; if(!k) return;
-    edKey = k; syncEditor(); drawPreview();
-  });
-  $('edRows').addEventListener('input', e=>{ const f = e.target.dataset && e.target.dataset.f; if(f) setAdj(edKey, f, +e.target.value); });
-  // − / ＋：按一下調 1，按住會連續調
-  let rep = null;
-  const stopRep = ()=>{ if(rep){ clearTimeout(rep.t); clearInterval(rep.i); rep = null; } };
-  const bump = b => setAdj(edKey, b.dataset.f, state.adj[edKey][b.dataset.f] + (+b.dataset.d));
-  $('edRows').addEventListener('pointerdown', e=>{
-    const b = e.target.closest('.step'); if(!b) return;
-    e.preventDefault(); stopRep(); bump(b);
-    rep = {t:setTimeout(()=>{ rep.i = setInterval(()=>bump(b), 60); }, 400)};
-  });
-  ['pointerup','pointercancel','pointerleave'].forEach(ev=>$('edRows').addEventListener(ev, stopRep));
-  $('edRows').addEventListener('click', e=>{ const b = e.target.closest('.step'); if(b && e.detail===0) bump(b); }); // 鍵盤
-  $('edFont').addEventListener('change', e=>{
-    state.font[edKey] = e.target.value; updateAdjSum();
-    if(!playing) render(0,true);
-    ensureFonts().then(()=>{ if(!playing) render(0,true); });
-  });
-  $('edReset').addEventListener('click', ()=>resetAdj([edKey]));
-  $('edResetAll').addEventListener('click', ()=>resetAdj(ADJ_ITEMS.map(i=>i[0])));
-  $('edZoom').addEventListener('click', ()=>{ edZoom = !edZoom; syncEditor(); sizePreview(); });
-  $('edDone').addEventListener('click', closeEditor);
-  $('adjOpen').addEventListener('click', openEditor);
-
-  // 在預覽上拖動：點中哪段文字就選哪段；點空位就移動目前選中的文字
-  let drag = null;
-  const toCard = e=>{ const r = pv.getBoundingClientRect(), v = viewRect(); return {x:v.x+(e.clientX-r.left)/r.width*v.w, y:v.y+(e.clientY-r.top)/r.height*v.h}; };
-  pv.addEventListener('pointerdown', e=>{
-    if(drag) return;
-    // 找最接近手指的文字（30 卡片像素內）；名字和 IG 很近，所以用距離而不是先到先得
-    const p = toCard(e);
-    let hit = null, best = 30;
-    ['name','ig','date'].forEach(k=>{
-      const b = textBounds[k]; if(!b) return;
-      const d = Math.hypot(Math.max(b.x-p.x, 0, p.x-b.x-b.w), Math.max(b.y-p.y, 0, p.y-b.y-b.h));
-      const c = Math.abs(p.y-(b.y+b.h/2))/1000; // 同時在兩個範圍內時，選中心較近的
-      if(d+c < best){ best = d+c; hit = k; }
-    });
-    if(hit && hit!==edKey){ edKey = hit; syncEditor(); }
-    if(!state[edKey]) return;
-    pv.setPointerCapture(e.pointerId);
-    drag = {id:e.pointerId, p, dx:state.adj[edKey].dx, dy:state.adj[edKey].dy};
-    pv.style.cursor = 'grabbing';
-  });
-  pv.addEventListener('pointermove', e=>{
-    if(!drag || e.pointerId!==drag.id) return;
-    const p = toCard(e), a = state.adj[edKey];
-    a.dx = clamp(Math.round(drag.dx + p.x-drag.p.x), ...ADJ_RANGE.dx);
-    a.dy = clamp(Math.round(drag.dy + p.y-drag.p.y), ...ADJ_RANGE.dy);
-    syncEditor(); render(0,true);
-  });
-  const endDrag = e=>{ if(drag && e.pointerId===drag.id){ drag = null; pv.style.cursor = ''; updateAdjSum(); } };
-  pv.addEventListener('pointerup', endDrag); pv.addEventListener('pointercancel', endDrag);
-}
-
-function sizePreview(){
-  if(!edOpen) return;
-  const box = $('edView'), v = viewRect(), aspect = v.w/v.h;
-  const aw = box.clientWidth-16, ah = box.clientHeight-16;
-  if(aw<=0 || ah<=0) return;
-  const cw = Math.min(aw, ah*aspect), ch = cw/aspect;
-  const dpr = Math.min(window.devicePixelRatio||1, 3);
-  pv.style.width = cw+'px'; pv.style.height = ch+'px';
-  pv.width = Math.round(cw*dpr); pv.height = Math.round(ch*dpr);
-  drawPreview();
-}
-function drawPreview(){
-  if(!edOpen || !pv.width) return;
-  const v = viewRect(), s = pv.width/v.w;
-  pctx.setTransform(1,0,0,1,0,0);
-  pctx.imageSmoothingEnabled = true; pctx.imageSmoothingQuality = 'high';
-  pctx.drawImage(cv, v.x, v.y, v.w, v.h, 0, 0, pv.width, pv.height);
-  // 選中的文字加虛線框（只在預覽顯示，不會出現在圖片或影片）
-  const b = textBounds[edKey]; if(!b) return;
-  const pad = 10;
-  pctx.save();
-  pctx.setTransform(s,0,0,s,-v.x*s,-v.y*s);
-  const u = Math.min(window.devicePixelRatio||1, 3)/s; // 1 個螢幕像素
-  pctx.lineWidth = 2*u;
-  pctx.setLineDash([7*u, 5*u]);
-  pctx.strokeStyle = 'rgba(0,0,0,.6)'; pctx.strokeRect(b.x-pad, b.y-pad, b.w+pad*2, b.h+pad*2);
-  pctx.lineDashOffset = 6*u; pctx.strokeStyle = '#f2d48a'; pctx.strokeRect(b.x-pad, b.y-pad, b.w+pad*2, b.h+pad*2);
-  pctx.restore();
-}
-function openEditor(){
-  // 預設選第一段有內容的文字
-  if(!state[edKey]) edKey = (ADJ_ITEMS.find(([k])=>state[k])||ADJ_ITEMS[0])[0];
-  edOpen = true;
-  $('editor').hidden = false;
-  document.body.style.overflow = 'hidden';
-  syncEditor();
-  render(0,true);
-  requestAnimationFrame(sizePreview);
-}
-function closeEditor(){
-  edOpen = false;
-  $('editor').hidden = true;
-  document.body.style.overflow = '';
-  render(0,true);
-}
-window.addEventListener('resize', sizePreview);
-if(window.visualViewport) visualViewport.addEventListener('resize', sizePreview);
-document.addEventListener('keydown', e=>{ if(e.key==='Escape' && edOpen) closeEditor(); });
 const promoLayout = rememberLayout('promo', state);
-buildEditor();
-updateAdjSum();
+function still(){ if(!playing) render(0,true); }
+function updateAdjSum(){ window.qgEditor?.sync('promo'); }
 
 // 相片
-$('photo').addEventListener('change', e=>{
-  const f = e.target.files && e.target.files[0]; if(!f) return;
+function loadPhoto(f){
   const url = URL.createObjectURL(f);
   const im = new Image();
   im.onload = ()=>{
@@ -916,14 +719,13 @@ $('photo').addEventListener('change', e=>{
     const b = document.createElement('canvas'); b.width = Math.max(8,Math.round(c.width/22)); b.height = Math.max(8,Math.round(c.height/22));
     const bctx = b.getContext('2d'); bctx.imageSmoothingQuality='high'; bctx.drawImage(c,0,0,b.width,b.height);
     state.photo = c; state.blur = b;
-    promoLayout.restorePhoto(); clampPos(); $('zoom').value = state.zoom; render(0,true); URL.revokeObjectURL(url);
-    $('hint').style.opacity = 1; setTimeout(()=>$('hint').style.opacity=0, 3500);
+    promoLayout.restorePhoto(); clampPos(); still(); URL.revokeObjectURL(url);
+    updateAdjSum(); window.qgEditor?.sync('promo');
   };
+  im.onerror = ()=>{ URL.revokeObjectURL(url); status('相片讀取失敗，請換一張再試'); };
   im.src = url;
-});
-function resetPos(){ state.zoom=1; state.dx=0; state.dy=0; $('zoom').value=1; if(!playing) render(0,true); }
-$('reset').addEventListener('click', resetPos);
-$('zoom').addEventListener('input', e=>{ state.zoom = +e.target.value; clampPos(); if(!playing) render(0,true); });
+}
+$('photo').addEventListener('change', e=>{ const f = e.target.files && e.target.files[0]; e.target.value = ''; if(f) loadPhoto(f); });
 
 function clampPos(){
   const p = state.photo; if(!p) return;
@@ -935,52 +737,33 @@ function clampPos(){
 // 給共用放大照片編輯器使用：沿用此頁既有位置與縮放數據
 window.qgPromoView = {state, render, clampPos, box:PHOTO_BOX, canvas:cv, saveLayout:promoLayout.save, busy:()=>promoExporting};
 
-// 拖動 / 兩指縮放
-const pts = new Map(); let pinch = null;
-const stage = $('stage');
-stage.addEventListener('pointerdown', e=>{
-  if(!state.photo || playing) return;
-  stage.setPointerCapture(e.pointerId);
-  pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pts.size===2){ const [a,b]=[...pts.values()]; pinch={d:Math.hypot(a.x-b.x,a.y-b.y), z:state.zoom}; }
-});
-stage.addEventListener('pointermove', e=>{
-  if(!pts.has(e.pointerId)) return;
-  const prev = pts.get(e.pointerId), k = W/cv.clientWidth;
-  pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pts.size===2 && pinch){
-    const [a,b]=[...pts.values()];
-    state.zoom = clamp(pinch.z*Math.hypot(a.x-b.x,a.y-b.y)/pinch.d, 1, 3); $('zoom').value = state.zoom;
-  } else if(pts.size===1){
-    state.dx += (e.clientX-prev.x)*k; state.dy += (e.clientY-prev.y)*k;
-  }
-  clampPos(); render(0,true);
-});
-const endPt = e=>{ pts.delete(e.pointerId); if(pts.size<2) pinch=null; };
-stage.addEventListener('pointerup', endPt); stage.addEventListener('pointercancel', endPt);
-
 // ---------- 播放 ----------
-let playing = false;
+// 預覽動畫唔會鎖住其他操作：播放期間仍可改字、換相、調位置（下一格即時反映）；
+// 再按播放會重新開始；按下載會停止預覽再匯出。
+let playing = false, playToken = 0;
 const DURATION = 5;
-function playOnce(onFrame){
+function playOnce(){
+  const token = ++playToken;
   return new Promise(res=>{
     playing = true;
     const t0 = performance.now();
     function step(now){
+      if(token!==playToken){ res(false); return; }
       const t = (now-t0)/1000;
       render(Math.min(t,DURATION));
-      if(onFrame) onFrame(t);
       if(t < DURATION) requestAnimationFrame(step);
-      else { playing = false; res(); }
+      else { playing = false; res(true); }
     }
     requestAnimationFrame(step);
   });
 }
-$('play').addEventListener('click', async ()=>{
-  if(playing) return;
+function stopPreview(){ if(playing && !promoExporting){ playToken++; playing = false; render(0,true); } }
+async function preview(){
+  if(promoExporting) return;
   await ensureFonts();
-  await playOnce(); render(0,true);
-});
+  if(await playOnce()) render(0,true);
+}
+$('play').addEventListener('click', preview);
 let promoExporting=false;
 function setBusy(b){ promoExporting=b; ['play','png','mp4','saveVid'].forEach(id=>$(id).disabled=b); }
 
@@ -1027,7 +810,8 @@ function checkPromoReady(){
 
 $('png').addEventListener('click', async ()=>{
   if(!checkReady() || !checkPromoReady())return;
-  if(playing){status('動畫預覽中，結束後可再次下載');return;}
+  if(promoExporting) return;
+  stopPreview();
   // 圖片和文案用同一份資料快照
   const snap = {name:state.name, ig:state.ig, date:state.displayDate || state.date};
   setBusy(true); window.qgWorkflow?.progress('promo',4,'生成圖片中');
@@ -1130,41 +914,33 @@ function pickMime(){
 }
 $('mp4').addEventListener('click', async ()=>{
   if(!checkReady())return;
-  if(playing){status('動畫預覽中，結束後可再次下載');return;}
-  const mime = pickMime();
-  if(mime===null || !cv.captureStream){ status('這個瀏覽器不支援錄影，請改用 iPhone Safari 或電腦版 Chrome'); return; }
+  if(promoExporting) return;
+  stopPreview();
   await ensureFonts();
   // 影片和文案用同一份資料快照
   const snap = {name:state.name, ig:state.ig, date:state.displayDate || state.date};
   $('saveBox').classList.remove('on'); pendingVideo = null;
   setBusy(true); $('rec').classList.add('on'); status('錄影中…約 5 秒');
   window.qgWorkflow?.progress('promo',2,'開始錄影');
-  const stream = cv.captureStream(30);
-  let rec;
-  try{ rec = new MediaRecorder(stream, mime ? {mimeType:mime, videoBitsPerSecond:8_000_000} : {videoBitsPerSecond:8_000_000}); }
-  catch(e){ rec = new MediaRecorder(stream); }
-  const chunks = [];
-  rec.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
-  const stopped = new Promise(r=>rec.onstop=r);
-  // 先畫好第一格並等畫面更新，避免錄到舊畫面
-  playing = true; render(0);
-  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-  rec.start(100);
-  const holdEnd = performance.now()+250;
-  await new Promise(r=>{ (function hold(){ render(0); if(performance.now()<holdEnd) requestAnimationFrame(hold); else r(); })(); });
-  await playOnce(t=>window.qgWorkflow?.progress('promo',Math.min(90,Math.round(6+84*t/5)),'正在錄製影片'));
-  // 最後停留一點點，確保最後一格被錄到
-  await new Promise(r=>setTimeout(r,150));
-  rec.stop(); await stopped;
-  stream.getTracks().forEach(t=>t.stop());
-  $('rec').classList.remove('on'); setBusy(false); render(0,true);
-  const type = rec.mimeType || mime || 'video/webm';
-  const ext = type.includes('mp4') ? 'mp4' : 'webm';
-  pendingVideo = { blob:new Blob(chunks,{type:type.split(';')[0]}), name:baseName()+'.'+ext, snap };
-  await window.qgWorkflow?.record('promo',{name:state.name,ig:state.ig,date:$('date').value,zoom:state.zoom,dx:state.dx,dy:state.dy,adj:state.adj,font:state.font},cv,state.photo);
-  window.qgWorkflow?.progress('promo',95,'影片已錄好，請按儲存');
-  status('錄好了！按下面的按鈕儲存' + (ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
-  $('saveBox').classList.add('on');
+  playing = true;
+  try{
+    const out = await window.qgVideo.record({
+      bg:'video/promo-bg.jpg', card:cv, cardBg:img.bg, duration:DURATION, hold:0.25,
+      frame:t=>render(t,false,true),
+      progress:p=>window.qgWorkflow?.progress('promo',Math.min(90,Math.round(6+84*p)),'正在錄製影片'),
+    });
+    pendingVideo = { blob:out.blob, name:baseName()+'.'+out.ext, snap };
+    playing = false; render(0,true);
+    window.qgWorkflow?.progress('promo',92,'儲存本機記錄');
+    await window.qgWorkflow?.record('promo',{name:state.name,ig:state.ig,date:$('date').value,zoom:state.zoom,dx:state.dx,dy:state.dy,adj:state.adj,font:state.font},cv,state.photo);
+    window.qgWorkflow?.progress('promo',95,'影片已錄好，請按儲存');
+    status('錄好了！按下面的按鈕儲存' + (out.ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
+    $('saveBox').classList.add('on');
+  }catch(err){
+    status(err.message || '錄影失敗，請再試一次'); window.qgWorkflow?.fail('promo','錄影失敗');
+  }finally{
+    playing = false; $('rec').classList.remove('on'); setBusy(false); render(0,true);
+  }
 });
 $('saveVid').addEventListener('click', async ()=>{
   if(!pendingVideo) return;
@@ -1175,6 +951,32 @@ $('saveVid').addEventListener('click', async ()=>{
     if(v.snap.ig && v.snap.date) openPromo(v.snap);
   }else window.qgWorkflow?.fail('promo','已取消儲存');
 });
+
+// ---------- 共用編輯器接入 ----------
+window.qgCards = window.qgCards || {};
+window.qgCards.promo = {
+  key:'promo', id:'promoEd', panel:$('tab-promo'), canvas:cv, thumb:$('stage'),
+  openPhoto:$('openPhoto'), openText:$('adjOpen'), summary:$('adjSum'),
+  still, play:preview, playing:()=>playing, busy:()=>promoExporting, save:()=>promoLayout.save(),
+  photo:{
+    has:()=>!!state.photo, zoom:()=>state.zoom,
+    setZoom(z){ state.zoom = clamp(z,1,3); clampPos(); },
+    pan(x,y){ state.dx += x; state.dy += y; clampPos(); },
+    reset(){ state.zoom = 1; state.dx = 0; state.dy = 0; },
+    load:loadPhoto,
+  },
+  text:{
+    items:ADJ_ITEMS, fields:ADJ_FIELDS,
+    fonts:k=>fontList(k).map(f=>({id:f.id, label:f.label})),
+    font:k=>state.font[k],
+    setFont(k,id){ state.font[k] = id; ensureFonts().then(still); },
+    get:(k,f)=>state.adj[k][f],
+    set(k,f,v){ const [mn,mx] = ADJ_RANGE[f]; state.adj[k][f] = clamp(Math.round(v), mn, mx); },
+    reset(keys){ keys.forEach(k=>{ ADJ_FIELDS.forEach(([f])=>{ state.adj[k][f] = 0; }); state.font[k] = FONT_DEFAULT[k]; }); ensureFonts().then(still); },
+    has:k=>!!state[k], bounds:k=>textBounds[k],
+    changed:()=>ADJ_ITEMS.some(([k])=>ADJ_FIELDS.some(([f])=>state.adj[k][f]!==0) || state.font[k]!==FONT_DEFAULT[k]),
+  },
+};
 
 // ---------- 開始 ----------
 Promise.all(Object.keys(A).map(k=>loadImg(A[k].src).then(i=>img[k]=i))).then(async ()=>{
@@ -1415,12 +1217,13 @@ function wiggle(t){
 }
 
 // ---------- 畫面（t = 秒；final = 靜態完成圖） ----------
-function render(t, final=false){
+function render(t, final=false, noBg=false){
   g = cardCtx;
   g.setTransform(1,0,0,1,0,0); g.globalAlpha = 1;
-  if(!assetsReady){ g.fillStyle = '#16101f'; g.fillRect(0,0,W,H); mirror(); return; }
+  if(!assetsReady){ g.fillStyle = '#16101f'; g.fillRect(0,0,W,H); return; }
   if(final) t = 99;
-  g.drawImage(img.bg, 0, 0);
+  // 影片：卡片背景由 1080×1920 全畫面背景取代（ui/video.js）
+  if(noBg) g.clearRect(0,0,W,H); else g.drawImage(img.bg, 0, 0);
   // 蕾絲：一直順時針轉（每秒 18 度）
   if(img.lace){
     g.save();
@@ -1462,7 +1265,6 @@ function render(t, final=false){
     const st = 1.06 + i*0.074;
     return {a: prog(t,st,0.03), dy: 18*(1-easeOut(prog(t,st,0.12)))};
   });
-  mirror();
 }
 const still = ()=>{ if(!playing) render(0,true); };
 
@@ -1522,183 +1324,45 @@ function blobToCanvas(blob){
     im.src = url;
   });
 }
-async function onPhoto(e){
-  const f = e.target.files && e.target.files[0]; e.target.value = '';
-  if(!f) return;
+async function loadPhoto(f){
   try{
     state.photo = await blobToCanvas(f); state.photoBlob = null;
     weeklyLayout.restorePhoto(); clampPos(); syncZoom(); still(); updateSum();
     say('');
   }catch(err){ say('相片讀取失敗，請換一張再試'); }
 }
-$('wkPhoto').addEventListener('change', onPhoto);
-$('wkPhoto2').addEventListener('change', onPhoto);
-function resetPos(){ state.zoom = 1; state.dx = 0; state.dy = 0; syncZoom(); still(); }
-function syncZoom(){ $('wkZoom').value = state.zoom; $('wkZoomOut').textContent = Math.round(state.zoom*100)+'%'; }
-function setZoom(z){ state.zoom = clamp(z,1,3); clampPos(); syncZoom(); still(); }
-$('wkZoom').addEventListener('input', e=>setZoom(+e.target.value));
-$('wkResetPos').addEventListener('click', resetPos);
+$('wkPhoto').addEventListener('change', e=>{ const f = e.target.files && e.target.files[0]; e.target.value = ''; if(f) loadPhoto(f); });
+function syncZoom(){ window.qgEditor?.sync('weekly'); }
 
-// ---------- 全螢幕預覽／調整（相片或文字） ----------
-let edOpen = false, edMode = 'photo';
-const pv = $('wkPv'), pctx = pv.getContext('2d');
-function mirror(){
-  if(!edOpen || !pv.width) return;
-  pctx.setTransform(1,0,0,1,0,0);
-  pctx.imageSmoothingEnabled = true; pctx.imageSmoothingQuality = 'high';
-  pctx.drawImage(cv, 0, 0, pv.width, pv.height);
-  // 文字模式：日期加虛線框（只在預覽顯示，不會出現在圖片或影片）
-  if(edMode!=='text' || playing || !dateBounds) return;
-  const s = pv.width/W, b = dateBounds, u = 1/s*Math.min(window.devicePixelRatio||1, 3), p = 8;
-  pctx.save(); pctx.setTransform(s,0,0,s,0,0);
-  pctx.lineWidth = 2*u; pctx.setLineDash([7*u,5*u]);
-  pctx.strokeStyle = 'rgba(0,0,0,.6)'; pctx.strokeRect(b.x-p, b.y-p, b.w+p*2, b.h+p*2);
-  pctx.lineDashOffset = 6*u; pctx.strokeStyle = '#f2d48a'; pctx.strokeRect(b.x-p, b.y-p, b.w+p*2, b.h+p*2);
-  pctx.restore();
-}
-function sizePreview(){
-  if(!edOpen) return;
-  const box = $('wkEdView'), aspect = W/H;
-  const aw = box.clientWidth-16, ah = box.clientHeight-16;
-  if(aw<=0 || ah<=0) return;
-  const cw = Math.min(aw, ah*aspect), ch = cw/aspect;
-  const dpr = Math.min(window.devicePixelRatio||1, 3);
-  pv.style.width = cw+'px'; pv.style.height = ch+'px';
-  pv.width = Math.round(cw*dpr); pv.height = Math.round(ch*dpr);
-  mirror();
-}
-function syncEd(){
-  $('wkEdSeg').querySelectorAll('button').forEach(b=>{
-    const on = b.dataset.m===edMode; b.classList.toggle('on', on); b.setAttribute('aria-selected', on);
-  });
-  $('wkCtlPhoto').hidden = edMode!=='photo';
-  $('wkCtlText').hidden = edMode!=='text';
-  $('wkTipPhoto').textContent = state.photo ? '用手指拖動相片，兩指縮放' : '未選相片，按「換相片」揀一張';
-  pv.style.cursor = edMode==='photo' ? (state.photo ? 'grab' : '') : 'grab';
-  ADJ.forEach(([f])=>{ $('wi_'+f).value = state.adj[f]; $('wo_'+f).textContent = state.adj[f]; });
-  $('wkFont').value = state.font;
-  syncZoom();
-}
-function openEd(mode){
-  edMode = mode; edOpen = true;
-  $('wkEd').hidden = false;
-  document.body.style.overflow = 'hidden';
-  syncEd();
-  requestAnimationFrame(()=>{ sizePreview(); still(); });
-}
-function closeEd(){
-  edOpen = false;
-  $('wkEd').hidden = true;
-  document.body.style.overflow = '';
-  updateSum(); still();
-}
-$('wkThumb').addEventListener('click', ()=>openEd('photo'));
-$('wkOpenPhoto').addEventListener('click', ()=>openEd('photo'));
-$('wkOpenText').addEventListener('click', ()=>openEd('text'));
-$('wkEdDone').addEventListener('click', closeEd);
-$('wkEdSeg').addEventListener('click', e=>{ const m = e.target.dataset && e.target.dataset.m; if(m){ edMode = m; syncEd(); mirror(); } });
-window.addEventListener('resize', sizePreview);
-if(window.visualViewport) visualViewport.addEventListener('resize', sizePreview);
-document.addEventListener('keydown', e=>{ if(e.key==='Escape' && edOpen) closeEd(); });
+// ---------- 「預覽及調整」：共用編輯器（ui/editor.js） ----------
+// 文字微調（日期）
+const FONT_OPTS = FONTS.map(f=>({id:f.id, label:f.label.replace('（預設）','')+(f.id===FONT_DEF?'（預設）':'')}));
+function setAdj(f, v){ state.adj[f] = clamp(Math.round(v), ...ADJ_RANGE[f]); }
 
-// 文字微調控制
-$('wkFont').innerHTML = FONTS.map(f=>`<option value="${f.id}">${f.label.replace('（預設）','')}${f.id===FONT_DEF?'（預設）':''}</option>`).join('');
-$('wkRows').innerHTML = ADJ.map(([f,fl,mn,mx])=>
-  `<div class="ed-row"><span>${fl}</span>`+
-  `<button class="step" data-f="${f}" data-d="-1" aria-label="${fl}減少">−</button>`+
-  `<input type="range" id="wi_${f}" min="${mn}" max="${mx}" step="1" value="0" data-f="${f}" aria-label="${fl}">`+
-  `<button class="step" data-f="${f}" data-d="1" aria-label="${fl}增加">+</button>`+
-  `<output id="wo_${f}">0</output></div>`).join('');
-function setAdj(f, v){
-  state.adj[f] = clamp(Math.round(v), ...ADJ_RANGE[f]);
-  $('wi_'+f).value = state.adj[f]; $('wo_'+f).textContent = state.adj[f];
-  still();
-}
-$('wkRows').addEventListener('input', e=>{ const f = e.target.dataset && e.target.dataset.f; if(f) setAdj(f, +e.target.value); });
-$('wkFont').addEventListener('change', e=>{
-  state.font = e.target.value; layout = null; still();
-  ensureFont().then(()=>{ layout = null; still(); });
-});
-$('wkResetText').addEventListener('click', ()=>{
-  state.adj = blankAdj(); state.font = FONT_DEF; layout = null; syncEd(); still();
-  ensureFont().then(()=>{ layout = null; still(); });
-});
-// − / ＋：按一下調 1，按住會連續調（縮放每次 5%）
-(function(){
-  let rep = null;
-  const stop = ()=>{ if(rep){ clearTimeout(rep.t); clearInterval(rep.i); rep = null; } };
-  const bump = b => b.dataset.z ? setZoom(state.zoom + 0.05*(+b.dataset.z)) : setAdj(b.dataset.f, state.adj[b.dataset.f] + (+b.dataset.d));
-  const box = $('wkEd').querySelector('.ed-ctrl');
-  box.addEventListener('pointerdown', e=>{
-    const b = e.target.closest('.step'); if(!b) return;
-    e.preventDefault(); stop(); bump(b);
-    rep = {t:setTimeout(()=>{ rep.i = setInterval(()=>bump(b), 60); }, 400)};
-  });
-  ['pointerup','pointercancel','pointerleave'].forEach(ev=>box.addEventListener(ev, stop));
-  box.addEventListener('click', e=>{ const b = e.target.closest('.step'); if(b && e.detail===0) bump(b); }); // 鍵盤
-})();
-
-// 在預覽上拖動：相片模式拖相片／兩指縮放；文字模式拖日期
-(function(){
-  const pts = new Map(); let pinch = null, drag = null;
-  const k = ()=> W/pv.getBoundingClientRect().width;
-  pv.addEventListener('pointerdown', e=>{
-    if(edMode==='photo' && !state.photo) return;
-    if(edMode==='text' && !state.text) return;
-    pv.setPointerCapture(e.pointerId);
-    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
-    if(edMode==='photo' && pts.size===2){ const [a,b] = [...pts.values()]; pinch = {d:Math.hypot(a.x-b.x,a.y-b.y)||1, z:state.zoom}; }
-    if(edMode==='text' && pts.size===1) drag = {x:e.clientX, y:e.clientY, dx:state.adj.dx, dy:state.adj.dy};
-  });
-  pv.addEventListener('pointermove', e=>{
-    if(!pts.has(e.pointerId)) return;
-    const prev = pts.get(e.pointerId);
-    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
-    if(edMode==='text'){
-      if(!drag) return;
-      state.adj.dx = clamp(Math.round(drag.dx + (e.clientX-drag.x)*k()), ...ADJ_RANGE.dx);
-      state.adj.dy = clamp(Math.round(drag.dy + (e.clientY-drag.y)*k()), ...ADJ_RANGE.dy);
-      syncEd(); render(0,true); return;
-    }
-    if(pts.size===2 && pinch){
-      const [a,b] = [...pts.values()];
-      state.zoom = clamp(pinch.z*Math.hypot(a.x-b.x,a.y-b.y)/pinch.d, 1, 3); syncZoom();
-    } else if(pts.size===1){
-      state.dx += (e.clientX-prev.x)*k(); state.dy += (e.clientY-prev.y)*k();
-    }
-    clampPos(); render(0,true);
-  });
-  const end = e=>{ pts.delete(e.pointerId); if(pts.size<2) pinch = null; if(!pts.size) drag = null; };
-  pv.addEventListener('pointerup', end); pv.addEventListener('pointercancel', end);
-})();
-
-function updateSum(){
-  const parts = [];
-  parts.push(state.photo ? '相片：已選' : '相片：未選');
-  const changed = state.font!==FONT_DEF || ADJ.some(([f])=>state.adj[f]!==0);
-  parts.push(changed ? '文字：已微調' : '文字：原本位置');
-  $('wkSum').textContent = parts.join('｜');
-  $('wkSum').classList.toggle('on', !!state.photo);
-}
+function updateSum(){ window.qgEditor?.sync('weekly'); }
 
 // ---------- 播放 ----------
 const DURATION = 5;
-function playOnce(onFrame){
+// 預覽動畫唔會鎖住其他操作；再按播放會重新開始；按下載會先停止預覽
+let playToken = 0;
+function playOnce(){
+  const token = ++playToken;
   return new Promise(res=>{
     playing = true;
     const t0 = performance.now();
     function step(now){
+      if(token!==playToken){ res(false); return; }
       const t = (now-t0)/1000;
       render(Math.min(t,DURATION));
-      if(onFrame)onFrame(t);
       if(t < DURATION) requestAnimationFrame(step);
-      else { playing = false; res(); }
+      else { playing = false; res(true); }
     }
     requestAnimationFrame(step);
   });
 }
+function stopPreview(){ if(playing && !weeklyExporting){ playToken++; playing = false; render(0,true); } }
 let weeklyExporting=false;
-const BUSY_IDS = ['wkPlay','wkPng','wkMp4','wkPrev','wkNext','wkStart','wkEnd','wkPhoto','wkPhoto2','wkThumb','wkOpenPhoto','wkOpenText','wkEdPlay','wkEdDone'];
+const BUSY_IDS = ['wkPlay','wkPng','wkMp4','wkPrev','wkNext','wkStart','wkEnd','wkPhoto','wkThumb','wkOpenPhoto','wkOpenText'];
 function setBusy(b){
   weeklyExporting=b;
   BUSY_IDS.forEach(id=>$(id).disabled=b);
@@ -1717,15 +1381,15 @@ function baseName(){
   return `每週更表_${a.getDate()}-${a.getMonth()+1}至${b.getDate()}-${b.getMonth()+1}`;
 }
 async function preview(){
-  if(playing || !assetsReady) return;
+  if(weeklyExporting || !assetsReady) return;
   await ensureFont(); layout = null;
-  await playOnce(); render(0,true);
+  if(await playOnce()) render(0,true);
 }
 $('wkPlay').addEventListener('click', preview);
-$('wkEdPlay').addEventListener('click', preview);
 $('wkPng').addEventListener('click', async ()=>{
   if(!ready())return;
-  if(playing){say('動畫預覽中，結束後再按下載');return;}
+  if(weeklyExporting) return;
+  stopPreview();
   setBusy(true); window.qgWorkflow?.progress('weekly',5,'正在生成更表圖片');
   let ok = false;
   try{
@@ -1743,39 +1407,33 @@ $('wkPng').addEventListener('click', async ()=>{
 let pendingVideo = null;
 $('wkMp4').addEventListener('click', async ()=>{
   if(!ready())return;
-  if(playing){say('動畫預覽中，結束後再按下載');return;}
-  const mime = pickMime();
-  if(mime===null || !cv.captureStream){ say('這個瀏覽器不支援錄影，請改用 iPhone Safari 或電腦版 Chrome'); return; }
+  if(weeklyExporting) return;
+  stopPreview();
   await ensureFont(); layout = null;
   const name = baseName();
   $('wkSaveBox').classList.remove('on'); pendingVideo = null;
   setBusy(true); $('wkRec').classList.add('on'); say('錄影中…約 5 秒');
   window.qgWorkflow?.progress('weekly',3,'開始錄影');
-  const stream = cv.captureStream(30);
-  let rec;
-  try{ rec = new MediaRecorder(stream, mime ? {mimeType:mime, videoBitsPerSecond:8_000_000} : {videoBitsPerSecond:8_000_000}); }
-  catch(e){ rec = new MediaRecorder(stream); }
-  const chunks = [];
-  rec.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
-  const stopped = new Promise(r=>rec.onstop=r);
-  playing = true; render(0);
-  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-  rec.start(100);
-  // 開頭只停約 0.08 秒（之前 0.25 秒令動畫比 Canva 原片遲開始）
-  const holdEnd = performance.now()+80;
-  await new Promise(r=>{ (function hold(){ render(0); if(performance.now()<holdEnd) requestAnimationFrame(hold); else r(); })(); });
-  await playOnce(t=>window.qgWorkflow?.progress('weekly',Math.min(90,Math.round(6+84*t/5)),'正在錄製影片'));
-  await new Promise(r=>setTimeout(r,150));
-  rec.stop(); await stopped;
-  stream.getTracks().forEach(t=>t.stop());
-  $('wkRec').classList.remove('on'); setBusy(false); render(0,true);
-  const type = rec.mimeType || mime || 'video/webm';
-  const ext = type.includes('mp4') ? 'mp4' : 'webm';
-  pendingVideo = { blob:new Blob(chunks,{type:type.split(';')[0]}), name:name+'.'+ext };
-  window.qgWorkflow?.progress('weekly',95,'影片錄製完成，請儲存');
-  say('錄好了！按下面的按鈕儲存' + (ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
-  $('wkSaveBox').classList.add('on');
-  saveHistory();
+  playing = true;
+  let ok = false;
+  try{
+    // 開頭只停約 0.08 秒（之前 0.25 秒令動畫比 Canva 原片遲開始）
+    const out = await window.qgVideo.record({
+      bg:'video/weekly-bg.jpg', card:cv, cardBg:img.bg, duration:DURATION, hold:0.08,
+      frame:t=>render(t,false,true),
+      progress:p=>window.qgWorkflow?.progress('weekly',Math.min(90,Math.round(6+84*p)),'正在錄製影片'),
+    });
+    pendingVideo = { blob:out.blob, name:name+'.'+out.ext };
+    window.qgWorkflow?.progress('weekly',95,'影片錄製完成，請儲存');
+    say('錄好了！按下面的按鈕儲存' + (out.ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
+    $('wkSaveBox').classList.add('on');
+    ok = true;
+  }catch(err){
+    say(err.message || '錄影失敗，請再試一次'); window.qgWorkflow?.fail('weekly','錄影失敗');
+  }finally{
+    playing = false; $('wkRec').classList.remove('on'); setBusy(false); render(0,true);
+  }
+  if(ok) saveHistory();
 });
 $('wkSaveVid').addEventListener('click', async ()=>{
   if(pendingVideo){const ok=await saveBlob(pendingVideo.blob, pendingVideo.name, say);if(ok)window.qgWorkflow?.finish('weekly',true,'影片已儲存');else window.qgWorkflow?.fail('weekly','未能儲存影片');}
@@ -1850,7 +1508,8 @@ function markCurrent(){
   $('wkHist').querySelectorAll('.wk-hi').forEach(el=>el.classList.toggle('cur', el.dataset.id===id));
 }
 $('wkHist').addEventListener('click', async e=>{
-  if(playing) return;
+  if(weeklyExporting) return;
+  stopPreview();
   const del = e.target.closest('[data-del]');
   if(del){
     const h = histCache[+del.dataset.del]; if(!h) return;
@@ -1894,6 +1553,29 @@ function start(){
     .catch(()=>{ started = false; say('素材載入失敗，請重新整理頁面'); });
 }
 window.qgWeekly = { start, isBusy:()=>weeklyExporting, render, state, DATE, resetLayout:()=>{ layout = null; } };
+window.qgCards = window.qgCards || {};
+window.qgCards.weekly = {
+  key:'weekly', id:'wkEd', panel:$('tab-weekly'), canvas:cv, thumb:$('wkThumb'),
+  openPhoto:$('wkOpenPhoto'), openText:$('wkOpenText'), summary:$('wkSum'),
+  still, play:preview, playing:()=>playing, busy:()=>weeklyExporting, save:()=>weeklyLayout.save(),
+  photo:{
+    has:()=>!!state.photo, zoom:()=>state.zoom,
+    setZoom(z){ state.zoom = clamp(z,1,3); clampPos(); },
+    pan(x,y){ state.dx += x; state.dy += y; clampPos(); },
+    reset(){ state.zoom = 1; state.dx = 0; state.dy = 0; },
+    load:loadPhoto,
+  },
+  text:{
+    items:[['date','日期']], fields:ADJ,
+    fonts:()=>FONT_OPTS, font:()=>state.font,
+    setFont(k,id){ state.font = id; layout = null; ensureFont().then(()=>{ layout = null; still(); }); },
+    get:(k,f)=>state.adj[f], set:(k,f,v)=>setAdj(f,v),
+    reset(){ state.adj = blankAdj(); state.font = FONT_DEF; layout = null; ensureFont().then(()=>{ layout = null; still(); }); },
+    has:()=>!!state.text, bounds:()=>dateBounds,
+    emptyTip:()=>'請先選擇開始及結束日期',
+    changed:()=>state.font!==FONT_DEF || ADJ.some(([f])=>state.adj[f]!==0),
+  },
+};
 })();
 
 // ================= 分頁切換 =================
@@ -1919,7 +1601,8 @@ window.qgWeekly = { start, isBusy:()=>weeklyExporting, render, state, DATE, rese
 </script>
 <script src="shadow/editor.js"></script>
 <script src="calendar/calendar.js"></script>
-<script src="ui/unified-editors.js"></script>
+<script src="ui/video.js"></script>
+<script src="ui/editor.js"></script>
 <script src="ui/workflow.js"></script>
 </body>
 </html>

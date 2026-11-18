@@ -52,8 +52,9 @@ function status(template,message){
 function card(template){
   const root=$(ids[template]);if(!root)return;
   const panel=document.createElement('section');panel.className='panel qg-card-history';
-  panel.innerHTML='<div class="qg-hist-head"><strong>最近 10 次記錄</strong><small>只儲存在這部裝置</small></div><div class="qg-hist-list"></div><p class="qg-hist-status" role="status"></p>';
-  const anchor=template==='promo'?$('saveBox'):template==='shadow'?$('sh-save'):$('cal-save');
+  // 同每週更表一樣的「最近 10 次記錄」格仔
+  panel.innerHTML='<label>最近 10 次記錄</label><div class="qg-hist-list"></div><div class="adj-sum qg-hist-status" role="status"></div>';
+  const anchor=template==='promo'?$('saveBox'):template==='shadow'?$('sh-saveBox'):$('cal-save');
   if(anchor)anchor.insertAdjacentElement('afterend',panel);else root.append(panel);
   containers[template]=panel;
 }
@@ -64,7 +65,8 @@ function layoutProgress(template){
   node.id='qg-progress-'+template;node.className='qg-export-progress';node.hidden=true;
   node.setAttribute('role','status');node.setAttribute('aria-live','polite');
   node.innerHTML='<div class="qg-progress-label">準備中</div><progress max="100" value="0"></progress><span class="qg-progress-value">0%</span>';
-  const target=template==='promo'?$('saveBox'):template==='shadow'?$('sh-save'):template==='weekly'?$('wkSaveBox'):$('cal-status');
+  // 進度條放在下載按鈕下面
+  const target=template==='calendar'?$('cal-status'):root.querySelector('.wk-btns');
   if(target)target.insertAdjacentElement('afterend',node);else root.append(node);
 }
 function progress(template,value,label){
@@ -136,9 +138,9 @@ async function restore(entry){
       }
       mergeObject(p.state.adj,data.adj);mergeObject(p.state.font,data.font);
       p.state.zoom=data.zoom??1;p.state.dx=data.dx??0;p.state.dy=data.dy??0;
-      p.clampPos();if($('zoom'))$('zoom').value=p.state.zoom;
+      p.clampPos();
       p.render(0,true);
-      window.qgRestorePromoLayout?.();
+      p.saveLayout?.();
     }
   }else if(template==='shadow'){
     inputValue('sh-name',data.name);inputValue('sh-ig',data.ig);inputValue('sh-date',data.date);
@@ -157,6 +159,7 @@ async function restore(entry){
     localStorage.setItem(storage,JSON.stringify(values));
     $('cal-month')?.dispatchEvent(new Event('change',{bubbles:true}));
   }
+  window.qgEditor?.sync(template);
   status(template,'已載入記錄；可以繼續調整後重新下載');
   $(ids[template])?.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -168,15 +171,16 @@ async function display(template){
     for(const u of urls.get(template)||[])URL.revokeObjectURL(u);
     const fresh=[];urls.set(template,fresh);
     list.replaceChildren();
-    if(!entries.length){const empty=document.createElement('p');empty.className='qg-hist-empty';empty.textContent='尚未有下載記錄';list.append(empty);return;}
+    if(!entries.length){status(template,'未有記錄。下載圖片或影片後會自動記錄最近 10 次。');return;}
+    status(template,'按記錄可以重新載入當時的內容及微調，按 × 刪除');
     for(const entry of entries){
       const row=document.createElement('div');row.className='qg-hist-row';
       const load=document.createElement('button');load.type='button';load.className='qg-hist-load';
       if(entry.thumb||entry.thumbUrl){const img=document.createElement('img');if(entry.thumb){const u=URL.createObjectURL(imageBytes(entry.thumb));fresh.push(u);img.src=u;}else img.src=entry.thumbUrl;img.alt='';load.append(img);}
-      const meta=document.createElement('span');meta.className='qg-hist-meta';
-      const title=document.createElement('strong');title.textContent=entry.template==='calendar'?entry.data.year+'-'+String(entry.data.month).padStart(2,'0'):(entry.data.name||'未命名');
-      const when=document.createElement('small');when.textContent=new Date(entry.ts).toLocaleString('zh-HK',{dateStyle:'short',timeStyle:'short'});
-      meta.append(title,when);load.append(meta);
+      const title=document.createElement('span');title.className='d';title.textContent=entry.template==='calendar'?entry.data.year+'-'+String(entry.data.month).padStart(2,'0'):(entry.data.name||'未命名');
+      const d=new Date(entry.ts),when=document.createElement('span');when.className='w';
+      when.textContent=d.getDate()+'/'+(d.getMonth()+1)+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+' 儲存';
+      load.append(title,when);
       load.onclick=()=>restore(entry).catch(()=>status(template,'無法載入此記錄'));
       const del=document.createElement('button');del.type='button';del.className='qg-hist-delete';del.textContent='×';del.setAttribute('aria-label','刪除這次記錄');
       del.onclick=async()=>{
@@ -203,8 +207,11 @@ function caption(template,title,text){
     const msg=document.createElement('span');msg.className='qg-caption-msg';
     copy.onclick=async()=>{
       const content=p.textContent;
-      try{await navigator.clipboard.writeText(content);msg.textContent='✓ 已複製';}
-      catch{const r=document.createRange();r.selectNodeContents(p);const s=getSelection();s.removeAllRanges();s.addRange(r);msg.textContent='請長按文字複製';}
+      let ok=false;
+      try{await navigator.clipboard.writeText(content);ok=true;}catch{}
+      if(!ok&&typeof legacyCopy==='function')ok=legacyCopy(content);
+      if(ok){copy.textContent='✓ 已複製';msg.textContent='已複製完整文案，可以直接貼上';setTimeout(()=>{copy.textContent='複製宣傳文案';},2500);}
+      else{const r=document.createRange();r.selectNodeContents(p);const s=getSelection();s.removeAllRanges();s.addRange(r);msg.textContent='未能自動複製，已幫你選取文字，請長按後選「拷貝」';}
     };
     block.append(h,p,copy,msg);
     const after=containers[template];if(after)after.insertAdjacentElement('beforebegin',block);else root.append(block);

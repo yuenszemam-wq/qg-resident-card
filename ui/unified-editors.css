@@ -1,113 +1,55 @@
-/* Shared responsive layouts and fullscreen editors — QG 2026-11 */
-/* Both cards must fit within the 560px page width. Never let the intrinsic
-   1012px canvas dictate the flex width or collapse the action column. */
-#tab-promo .promo-top,#tab-shadow .promo-top{
- display:flex;gap:12px;align-items:flex-start;width:100%;min-width:0;max-width:100%;
-}
-#tab-promo .promo-top>.stage,#tab-shadow .promo-top>.stage{
- display:block;flex:0 0 44%;width:44%;max-width:44%;min-width:0;
-}
-#tab-promo .promo-top>.stage canvas,#tab-shadow .promo-top>.stage canvas{
- display:block;width:100%;max-width:100%;height:auto;
-}
-#tab-promo .promo-tools,#tab-shadow .promo-tools{
- display:flex;flex-direction:column;gap:10px;
- flex:1 1 0%;width:0;min-width:0;max-width:100%;overflow-wrap:normal;
-}
-#tab-promo .promo-tools>* ,#tab-shadow .promo-tools>*{max-width:100%;min-width:0}
-#tab-promo .promo-tools .file,#tab-shadow .promo-tools .file,
-#tab-promo .promo-tools button,#tab-shadow .promo-tools button{
- white-space:normal;word-break:keep-all;overflow-wrap:break-word;
-}
+/* 三個分頁共用同一套介面（以每週更表為標準）：細預覽 + 右邊操作、資料欄、下載、進度、文案、最近 10 次記錄 */
 
-#tab-shadow .promo-tools{display:flex;flex-direction:column;gap:10px}
-#tab-shadow .promo-tools .adj-open,#tab-promo .promo-tools .adj-open{min-height:49px}
-#tab-shadow .promo-tools .btn,#tab-promo .promo-tools .btn{min-height:49px}
-#tab-shadow .qg-shadow-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 12px}
-#tab-shadow .qg-shadow-fields>label{min-width:0;margin:0}
-#tab-shadow .qg-shadow-fields>label:nth-child(3){grid-column:1/-1}
-#tab-shadow .qg-shadow-fields input{width:100%;min-width:0;max-width:100%;min-height:46px}
-#tab-shadow .qg-shadow-buttons{margin-top:12px}
-#tab-shadow #sh-save:not([hidden]){display:block;width:100%;margin-top:10px}
-#tab-shadow #sh-save[hidden]{display:none}
-#tab-shadow .stage{cursor:zoom-in}
-.qg-unified-editor{z-index:70!important;height:100dvh;min-height:0;padding-bottom:0}
-.qg-unified-editor .ed-head{flex-wrap:wrap;min-height:52px;flex-shrink:0;position:relative;z-index:2}
-.qg-unified-editor .ed-view{overflow:hidden;min-height:100px}
-.qg-unified-editor .ed-view canvas{max-width:none;border:1px solid var(--line);border-radius:10px;touch-action:none;transform-origin:50% 50%}
-.qg-unified-editor .ed-ctrl{max-height:43dvh;overflow-y:auto;overscroll-behavior:contain}
-.qg-unified-editor .qg-editor-group label{margin:8px 0 5px}
-.qg-unified-editor .qg-editor-group input[type=range],.qg-editor-range{width:100%;accent-color:var(--accent);display:block}
-.qg-unified-editor .qg-editor-group select{width:100%;font-size:16px;min-height:44px;border-radius:9px;background:#120c1a;color:var(--text);border:1px solid var(--line)}
-.qg-unified-editor .qg-editor-group .small{margin-top:10px}
-.qg-zoomed .ed-view{overflow:hidden}
-.qg-zoomed .ed-view canvas{transform:scale(1.65)}
-#wkEd{height:100dvh;min-height:0;z-index:70}
-#wkEd .ed-head{min-height:54px;flex-wrap:wrap;position:relative;z-index:2}
-#wkEd .ed-ctrl{max-height:46dvh;overflow-y:auto;overscroll-behavior:contain}
-#wkEd .ed-view{overflow:hidden}
-#wkEd .ed-view canvas{transform-origin:center center}
+/* 資料欄：名字、IG 一行，日期一行 */
+.qg-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 10px;align-items:end}
+.qg-fields label{margin:0!important}
+.qg-fields .wide{grid-column:1/-1}
+.qg-fields label.wide{margin-top:6px}
+.qg-fields input{min-width:0}
+
+/* 「預覽及調整」全螢幕編輯器（ui/editor.js） */
+.qg-ed{height:100dvh;min-height:0;z-index:70}
+.qg-ed [hidden]{display:none!important}
+.qg-ed .ed-head{flex-wrap:wrap;min-height:54px;position:relative;z-index:2}
+.qg-ed .ed-head h2{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qg-ed .ed-head .small,.qg-ed .ed-head .ed-done{white-space:nowrap;flex-shrink:0}
+.qg-ed .ed-view{overflow:hidden}
+.qg-ed .ed-view canvas{display:block;border-radius:10px;border:1px solid var(--line);background:#000;touch-action:none;cursor:grab}
+.qg-ed .ed-ctrl{max-height:46dvh;overflow-y:auto;overscroll-behavior:contain}
+.qg-ed .ed-tip{margin:8px 0 0}
+.qg-ed [data-pane=text] .seg{margin-top:8px}
+.qg-ed .ed-file{display:flex;align-items:center;justify-content:center;margin:0;color:var(--muted)}
+.qg-ed .ed-font select{min-width:0}
 @media(max-width:440px){
- #tab-shadow .promo-top,#tab-promo .promo-top{gap:10px}
- #tab-shadow .promo-tools,#tab-promo .promo-tools{gap:8px}
- #tab-shadow .promo-tools .adj-open,#tab-promo .promo-tools .adj-open{font-size:14px;padding:10px 8px}
- #tab-shadow .promo-tools .btn,#tab-promo .promo-tools .btn{font-size:14px;padding:11px 8px}
- #tab-shadow .qg-shadow-fields{padding:12px;gap:8px}
- #tab-shadow .qg-shadow-fields input{font-size:16px}
- #wkEd .ed-head .small,#wkEd .ed-head .ed-done{font-size:13px;padding:8px 10px}
+ .qg-ed .ed-head{gap:6px}
+ .qg-ed .ed-head .small,.qg-ed .ed-head .ed-done{font-size:13px;padding:8px 10px}
 }
 
-
-/* 2026-11-19 — shared photo/text editor UX */
-.qg-legacy-controls,[hidden].qg-legacy-controls{display:none!important}
-.qg-unified-editor .ed-head{display:flex;align-items:center;gap:8px}
-.qg-unified-editor .ed-head h2{font-size:16px;min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.qg-unified-editor .ed-head .small,.qg-unified-editor .ed-head .ed-done{white-space:nowrap;flex-shrink:0}
-.qg-unified-editor .ed-ctrl{overflow-y:auto}
-.qg-unified-editor .ed-ctrl .ed-row{display:grid;grid-template-columns:42px 42px minmax(0,1fr) 42px 30px;align-items:center;gap:7px;margin:10px 0;min-width:0}
-.qg-unified-editor .ed-ctrl .ed-row input[type=range]{width:100%;min-width:0;accent-color:#af83e2}
-.qg-unified-editor .ed-ctrl .ed-row output{text-align:right;tabular-nums:1}
-.qg-unified-editor .ed-font{display:flex;align-items:center;gap:10px;margin:10px 0}
-.qg-unified-editor .ed-font span{flex:0 0 38px}
-.qg-unified-editor .ed-font select{min-width:0;flex:1;width:auto}
-.qg-unified-editor .ed-foot{display:flex;gap:10px;margin-top:12px}
-.qg-unified-editor .ed-foot .small{flex:1;min-height:40px}
-.qg-unified-editor .qg-photo-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 12px}
-.qg-unified-editor .qg-photo-actions button{min-height:46px}
-.qg-unified-editor .qg-photo-zoom{display:block}
-.qg-unified-editor .qg-photo-zoom input{display:block;width:100%;margin-top:8px;accent-color:#b580df}
-.qg-unified-editor .ed-view{min-height:0}
-#editor #edZoom[hidden],#wkEd #wkEdZoom[hidden]{display:none!important}
-#tab-promo .promo-tools .adj-open,#tab-shadow .promo-tools .adj-open{width:100%;box-sizing:border-box}
-#tab-promo .promo-top>.stage,#tab-shadow .promo-top>.stage{cursor:zoom-in}
-#tab-promo h1{font-size:22px}
-@media(max-width:420px){
- .qg-unified-editor .ed-ctrl .ed-row{grid-template-columns:34px 34px minmax(0,1fr) 34px 26px;gap:5px}
- .qg-unified-editor .ed-head{gap:5px}
- .qg-unified-editor .ed-head .small,.qg-unified-editor .ed-head .ed-done{padding:8px 9px;font-size:13px}
-}
-
-
-/* Export progress, persistent captions and private per-device record lists */
-.qg-export-progress{display:grid;grid-template-columns:1fr auto;align-items:center;gap:7px 10px;margin:12px 0;padding:12px;background:#21162e;border:1px solid #59416d;border-radius:12px}
+/* 下載進度 */
+.qg-export-progress{display:grid;grid-template-columns:1fr auto;align-items:center;gap:7px 10px;margin:12px 0 0;padding:12px;background:#21162e;border:1px solid #59416d;border-radius:12px}
 .qg-export-progress[hidden]{display:none}
 .qg-export-progress .qg-progress-label{font-size:14px;color:#f2e9fa}
 .qg-export-progress .qg-progress-value{font-size:13px;color:#dbb0ee}
 .qg-export-progress progress{grid-column:1/-1;width:100%;height:12px;accent-color:#b77fd6;appearance:auto}
 .qg-export-progress[data-status=error]{border-color:#ba7882}
-.qg-card-history,.qg-saved-caption{margin-top:14px}
-.qg-hist-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
-.qg-hist-head strong{font-size:15px}.qg-hist-head small{font-size:11px;color:var(--muted)}
-.qg-hist-list{display:grid;gap:8px;max-height:380px;overflow-y:auto}
-.qg-hist-row{display:flex;align-items:stretch;gap:8px;min-width:0}
-.qg-hist-load{display:flex;align-items:center;gap:10px;flex:1;min-width:0;text-align:left;border:1px solid var(--line);background:#170f22;color:var(--text);border-radius:10px;padding:6px 8px}
-.qg-hist-load img{width:48px;height:64px;object-fit:cover;border-radius:6px}
-.qg-hist-meta{display:flex;flex-direction:column;gap:4px;min-width:0}
-.qg-hist-meta strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.qg-hist-meta small{color:var(--muted)}
-.qg-hist-delete{flex:0 0 38px;border:1px solid var(--line);background:#27152e;color:#f0d4ed;border-radius:9px;font-size:23px}
-.qg-hist-status,.qg-hist-empty{color:var(--muted);font-size:12px;line-height:1.6;margin:8px 0 0}
+
+/* 宣傳文案（彈窗關閉後仍然留在頁面，可以隨時複製） */
+.qg-saved-caption{margin-top:14px}
 .qg-saved-caption .qg-caption-title{display:block;color:var(--gold);margin-bottom:10px}
 .qg-saved-caption .qg-caption-body{font:inherit;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-y:auto;max-height:280px;overflow-wrap:anywhere;background:#170e22;border:1px solid var(--line);border-radius:8px;padding:12px;user-select:text;-webkit-user-select:text}
 .qg-saved-caption .btn{width:100%}
-.qg-caption-msg{display:block;text-align:center;margin-top:5px;color:var(--gold);font-size:12px}
+.qg-caption-msg{display:block;text-align:center;margin-top:5px;color:var(--gold);font-size:12px;min-height:1em}
+
+/* 最近 10 次記錄：同每週更表一樣嘅格仔 */
+.qg-card-history{margin-top:14px}
+.qg-hist-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.qg-hist-list:empty{display:none}
+.qg-hist-row{position:relative;min-width:0}
+.qg-hist-load{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;
+  background:#120c1a;color:var(--text);cursor:pointer;text-align:center}
+.qg-hist-load img{display:block;width:100%;aspect-ratio:1012/1350;object-fit:cover;background:#000}
+.qg-hist-load .d{display:block;font-size:11px;padding:5px 2px 2px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qg-hist-load .w{display:block;font-size:10px;color:var(--muted);padding:0 2px 5px}
+.qg-hist-delete{position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:none;
+  background:rgba(0,0,0,.65);color:#fff;font-size:16px;line-height:1;cursor:pointer}
+.qg-hist-status{margin-top:8px}
