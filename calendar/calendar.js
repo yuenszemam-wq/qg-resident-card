@@ -88,22 +88,23 @@
       field('save').disabled = false;
     } catch (error) { message(error.message); }
   }
-  function download(url,name) {
-    const link = document.createElement('a');
-    link.href = url; link.download = name;
-    document.body.append(link); link.click(); link.remove();
-  }
-  field('save').onclick = () => download(canvas.toDataURL('image/png'),'QG-Calendar-'+selected()+'.png');
-  field('export').onclick = () => {
+  field('save').onclick = async () => {
+    const filename = 'QG-Calendar-' + selected() + '.png';
+    try {
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw Error('月曆圖片未能產生，請再試一次');
+      await saveBlob(blob, filename, message);
+    } catch (error) { message(error.message); }
+  };
+  field('export').onclick = async () => {
     try {
       const blob = new Blob([JSON.stringify({version:1,months:read()},null,2)],{type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      download(url,'QG-Calendar-Backup.json');
-      setTimeout(()=>URL.revokeObjectURL(url),60000);
+      await saveBlob(blob, 'QG-Calendar-Backup.json', message);
     } catch (error) { message(error.message); }
   };
   field('import').onchange = async event => {
     const input = event.target;
+    if (!input.files.length) return;
     try {
       const backup = JSON.parse(await input.files[0].text());
       if (backup.version !== 1) throw Error('不支援此備份版本');
