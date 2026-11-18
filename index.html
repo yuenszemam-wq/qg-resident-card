@@ -933,7 +933,7 @@ function clampPos(){
 }
 
 // 給共用放大照片編輯器使用：沿用此頁既有位置與縮放數據
-window.qgPromoView = {state, render, clampPos, box:PHOTO_BOX, canvas:cv, busy:()=>promoExporting};
+window.qgPromoView = {state, render, clampPos, box:PHOTO_BOX, canvas:cv, saveLayout:promoLayout.save, busy:()=>promoExporting};
 
 // 拖動 / 兩指縮放
 const pts = new Map(); let pinch = null;
