@@ -188,6 +188,7 @@
 </style>
 <link rel="apple-touch-icon" href="calendar/icon.png"><link rel="icon" href="calendar/icon.png">
 <link rel="stylesheet" href="calendar/ui.css">
+<link rel="stylesheet" href="ui/unified-editors.css">
 </head>
 <body>
   <nav class="tabs" role="tablist" aria-label="分頁">
@@ -220,13 +221,10 @@
 
     <div class="row">
       <div>
-        <label for="date">4. 日期（DDMM）</label>
-        <input type="text" id="date" placeholder="例如：2011" inputmode="numeric" autocomplete="off">
+        <label for="date">4. 日期（點選日曆）</label>
+        <input type="date" id="date" required aria-label="限定居民出沒日期">
       </div>
-      <div style="flex:.6">
-        <label for="year">年份</label>
-        <input type="text" id="year" inputmode="numeric" autocomplete="off">
-      </div>
+
     </div>
     <div class="dateout" id="dateout"></div>
   </div>
@@ -714,14 +712,15 @@ function updateInputs(){
   // 移除所有開頭的 @（包括全形＠），再統一加一個
   const igRaw = $('ig').value.trim().replace(/\s+/g,'').replace(/^[@＠]+/,'');
   state.ig = igRaw ? '@'+igRaw : '';
-  const dt = parseDate($('date').value, $('year').value);
+  const dt = parseDate($('date').value, '');
+  const dateParts = $('date').value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  state.displayDate = dateParts ? (+dateParts[3])+' '+MONTHS[(+dateParts[2])-1]+' '+dateParts[1] : '';
   state.date = dt || '';
-  $('dateout').textContent = dt===null ? '看不懂這個日期，請用「DDMM」，例如 2011' : (dt ? '會顯示為：'+dt : '');
+  $('dateout').textContent = dt===null ? '請選擇有效日期' : (dt ? '卡片會顯示：'+dt+'｜文案日期：'+state.displayDate : '');
   ensureFonts().then(()=>{ if(!playing) render(0,true); });
   if(!playing) render(0,true);
 }
-['name','ig','date','year'].forEach(id=>$(id).addEventListener('input', updateInputs));
-$('year').value = new Date().getFullYear();
+['name','ig','date'].forEach(id=>{ $(id).addEventListener('input', updateInputs); $(id).addEventListener('change', updateInputs); });
 
 // 畫 Canvas 前必須等字體載入（同一組文字共用同一個 Promise，避免第二次呼叫時未載完就畫）
 let fontKey = '', fontPromise = Promise.resolve();
@@ -934,6 +933,9 @@ function clampPos(){
   state.dx = clamp(state.dx,-mx,mx); state.dy = clamp(state.dy,-my,my);
 }
 
+// 給共用放大照片編輯器使用：沿用此頁既有位置與縮放數據
+window.qgPromoView = {state, render, clampPos, box:PHOTO_BOX, canvas:cv, busy:()=>playing};
+
 // 拖動 / 兩指縮放
 const pts = new Map(); let pinch = null;
 const stage = $('stage');
@@ -1019,14 +1021,14 @@ function checkReady(){
 // 下載圖片時，宣傳文案還需要 IG 和日期
 function checkPromoReady(){
   if(!state.ig){ status('請輸入 IG 帳號'); $('ig').focus(); return false; }
-  if(!state.date){ status($('date').value.trim() ? '日期格式不正確，請用「DDMM」，例如 2011' : '請輸入日期'); $('date').focus(); return false; }
+  if(!state.date){ status('請選擇有效的日期'); $('date').focus(); return false; }
   return true;
 }
 
 $('png').addEventListener('click', async ()=>{
   if(playing || !checkReady() || !checkPromoReady()) return;
   // 圖片和文案用同一份資料快照
-  const snap = {name:state.name, ig:state.ig, date:state.date};
+  const snap = {name:state.name, ig:state.ig, date:state.displayDate || state.date};
   setBusy(true);
   try{
     await ensureFonts(); render(0,true);
@@ -1123,7 +1125,7 @@ $('mp4').addEventListener('click', async ()=>{
   if(mime===null || !cv.captureStream){ status('這個瀏覽器不支援錄影，請改用 iPhone Safari 或電腦版 Chrome'); return; }
   await ensureFonts();
   // 影片和文案用同一份資料快照
-  const snap = {name:state.name, ig:state.ig, date:state.date};
+  const snap = {name:state.name, ig:state.ig, date:state.displayDate || state.date};
   $('saveBox').classList.remove('on'); pendingVideo = null;
   setBusy(true); $('rec').classList.add('on'); status('錄影中…約 5 秒');
   const stream = cv.captureStream(30);
@@ -1626,7 +1628,7 @@ $('wkResetText').addEventListener('click', ()=>{
 // 在預覽上拖動：相片模式拖相片／兩指縮放；文字模式拖日期
 (function(){
   const pts = new Map(); let pinch = null, drag = null;
-  const k = ()=> W/pv.clientWidth;
+  const k = ()=> W/pv.getBoundingClientRect().width;
   pv.addEventListener('pointerdown', e=>{
     if(playing) return;
     if(edMode==='photo' && !state.photo) return;
@@ -1896,5 +1898,6 @@ window.qgWeekly = { start, isBusy:()=>playing, render, state, DATE, resetLayout:
 </script>
 <script src="shadow/editor.js"></script>
 <script src="calendar/calendar.js"></script>
+<script src="ui/unified-editors.js"></script>
 </body>
 </html>
