@@ -3,7 +3,7 @@
   const canvas = field('preview'), ctx = canvas.getContext('2d');
   const status = text => { field('status').textContent = text; };
   const positions = [[0,0],[219,105],[325,280],[285,14],[129,227],[115,245],[234,1220],[63,938],[679,314]];
-  const adj = Object.fromEntries(['name','ig','date'].map(key => [key,{dx:0,dy:0,size:0}]));
+  const adj = Object.fromEntries(['name','ig','date'].map(key => [key,{dx:0,dy:0,size:0,sp:0}]));
   const model = {adj, font:{name:'default',ig:'default',date:'default'}, photo:null, zoom:1, dx:0, dy:0};
   const layout = rememberLayout('shadow', model);
   let images, loading, busy = false, pending, upload = 0;
@@ -122,7 +122,7 @@
       ctx.save();
       ctx.font=chosenFont(key,sz);
       ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
-      const total=ctx.measureText(value).width, squeeze=Math.min(1,820/total);
+      const total=ctx.measureText(value).width+Math.max(0,n-1)*a.sp, squeeze=Math.min(1,820/total);
       ctx.translate(506+a.dx,y+a.dy); ctx.scale(squeeze,1);
       const grad=ctx.createLinearGradient(0,-sz*.42,0,sz*.42);
       grad.addColorStop(0,'#fcf4fc'); grad.addColorStop(1,'#d9a3e4');
@@ -130,7 +130,7 @@
       const glyphs=[];
       let before='';
       chars.forEach((ch,i)=>{
-        const cw=ctx.measureText(ch).width, x=ctx.measureText(before).width-total/2+cw/2;
+        const cw=ctx.measureText(ch).width, x=ctx.measureText(before).width+i*a.sp-total/2+cw/2;
         before+=ch;
         const k=progress(start+i*step,.12);
         if (k && ch.trim()) glyphs.push([ch,x,.3+.7*pop(k),Math.min(1,k*2.5)]);
