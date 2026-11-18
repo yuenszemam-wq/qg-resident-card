@@ -1036,12 +1036,13 @@ $('png').addEventListener('click', async ()=>{
     window.qgWorkflow?.progress('promo',55,'正在編碼 PNG');
     const blob = await new Promise(r=>cv.toBlob(r, 'image/png'));
     if(!blob){ status('圖片生成失敗，請再試一次'); return; }
+    window.qgWorkflow?.progress('promo',80,'儲存本機記錄');
+    await window.qgWorkflow?.record('promo',{name:state.name,ig:state.ig,date:$('date').value,zoom:state.zoom,dx:state.dx,dy:state.dy,adj:state.adj,font:state.font},cv,state.photo);
     window.qgWorkflow?.progress('promo',90,'準備儲存');
     const ok = await saveBlob(blob, baseName()+'.png');
     if(ok){
       window.qgWorkflow?.finish('promo',true,'圖片已準備好');
       openPromo(snap);
-      window.qgWorkflow?.record('promo',{name:state.name,ig:state.ig,date:$('date').value,zoom:state.zoom,dx:state.dx,dy:state.dy,adj:state.adj,font:state.font},cv,state.photo);
     }else window.qgWorkflow?.fail('promo','已取消下載');
   }catch(err){
     status('圖片生成失敗，請再試一次');window.qgWorkflow?.fail('promo','圖片生成失敗');
@@ -1160,6 +1161,7 @@ $('mp4').addEventListener('click', async ()=>{
   const type = rec.mimeType || mime || 'video/webm';
   const ext = type.includes('mp4') ? 'mp4' : 'webm';
   pendingVideo = { blob:new Blob(chunks,{type:type.split(';')[0]}), name:baseName()+'.'+ext, snap };
+  await window.qgWorkflow?.record('promo',{name:state.name,ig:state.ig,date:$('date').value,zoom:state.zoom,dx:state.dx,dy:state.dy,adj:state.adj,font:state.font},cv,state.photo);
   window.qgWorkflow?.progress('promo',95,'影片已錄好，請按儲存');
   status('錄好了！按下面的按鈕儲存' + (ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
   $('saveBox').classList.add('on');
@@ -1170,7 +1172,6 @@ $('saveVid').addEventListener('click', async ()=>{
   const ok = await saveBlob(v.blob, v.name);
   // 儲存後同樣彈出宣傳文案（需要有 IG 和日期）
   if(ok){window.qgWorkflow?.finish('promo',true,'影片已儲存');
-    window.qgWorkflow?.record('promo',{name:state.name,ig:state.ig,date:$('date').value,zoom:state.zoom,dx:state.dx,dy:state.dy,adj:state.adj,font:state.font},cv,state.photo);
     if(v.snap.ig && v.snap.date) openPromo(v.snap);
   }else window.qgWorkflow?.fail('promo','已取消儲存');
 });
