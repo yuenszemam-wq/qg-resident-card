@@ -400,9 +400,7 @@ function renderCard(t, final){
   drawLayer('lace', 1, {rot: final ? 0 : t*18*Math.PI/180});
 
   // 時間軸對照 Canva 原片：0 秒只有背景和蕾絲，沒有任何文字
-  // 浮動
-  const fl = final ? 0 : easeOut(prog(t,2.4,0.6));
-  const bob = ph => final ? 0 : Math.sin(t*2*Math.PI/2.4 + ph)*5*fl;
+  // 文字載入完成後保持靜止（Canva 原片沒有上下浮動）
   // 逐字出現：dur = 淡入時間，h = 位移（正數 = 由上跌下，負數 = 由下升上）
   const typeA = (st,gap,dur=0.2)=> i=>easeOut(prog(t,st+i*gap,dur));
   const typeY = (st,gap,h,dur=0.3)=> i=>-h*(1-easeOut(prog(t,st+i*gap,dur)));
@@ -428,31 +426,29 @@ function renderCard(t, final){
   drawLayer('keyL', ky, {dx: -120*(1-ky)});
 
   // 限定居民（逐字，每字 0.1 秒）
-  drawSliced('lm', bob(0), typeA(0.5,0.1,0.12), typeY(0.5,0.1,16,0.2));
+  drawSliced('lm', 0, typeA(0.5,0.1,0.12), typeY(0.5,0.1,16,0.2));
 
   // 名字：跟相片同一時間、同一方式由模糊變清
   delete textBounds.name;
   if(state.name){
     const an = state.adj.name, nx = W/2 + an.dx, ny = 1009 + an.dy;
     drawFx(()=>{
-      ctx.save(); ctx.translate(0, bob(0.9));
       outlinedText(state.name, nx, ny, {key:'name', font:nameFontSize([...state.name].length)+'px '+FONT_NAME, fill:WARM_WHITE, stroke:30, bold:0.065, spacing:an.sp, maxWidth:760});
-      ctx.restore();
     }, clamp(pt*3), pb, 0.86+0.14*pg, pcx, pcy);
   }
 
   // IG：0.85 秒很快淡入
   const ig = easeOut(prog(t,0.85,0.15));
   const ai = state.adj.ig;
-  outlinedText(state.ig, W/2 + ai.dx, 1100 + ai.dy + 6*(1-ig) + bob(1.8), {key:'ig', font:'400 54px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.02, spacing:ai.sp, alpha:ig, maxWidth:820});
+  outlinedText(state.ig, W/2 + ai.dx, 1100 + ai.dy + 6*(1-ig), {key:'ig', font:'400 54px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.02, spacing:ai.sp, alpha:ig, maxWidth:820});
 
   // Queen's Garden（逐字由上方輕輕跌下，1.0 秒起，每字約 0.075 秒）
-  drawSliced('qg', bob(2.7), typeA(1.0,0.075,0.06), typeY(1.0,0.075,20,0.15));
+  drawSliced('qg', 0, typeA(1.0,0.075,0.06), typeY(1.0,0.075,20,0.15));
 
   // 日期（逐字由下方彈上來，稍為衝過頭再回位，1.25 秒起）
   const ad = state.adj.date;
   const dateY = i=>{ const p = prog(t,1.25+i*0.11,0.35); return p>=1 ? 0 : 80*(1-easeBack(p,3)); };
-  outlinedText(state.date, W/2 + ad.dx, 1270 + ad.dy + bob(3.6), {key:'date', font:'400 58px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.03, spacing:1 + ad.sp, maxWidth:700,
+  outlinedText(state.date, W/2 + ad.dx, 1270 + ad.dy, {key:'date', font:'400 58px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.03, spacing:1 + ad.sp, maxWidth:700,
     charAlpha:typeA(1.25,0.11,0.08), charDy:dateY});
 }
 
@@ -871,6 +867,8 @@ $('mp4').addEventListener('click', async ()=>{
   const mime = pickMime();
   if(mime===null || !cv.captureStream){ status('這個瀏覽器不支援錄影，請改用 iPhone Safari 或電腦版 Chrome'); return; }
   await ensureFonts();
+  // 影片和文案用同一份資料快照
+  const snap = {name:state.name, ig:state.ig, date:state.date};
   $('saveBox').classList.remove('on'); pendingVideo = null;
   setBusy(true); $('rec').classList.add('on'); status('錄影中…約 5 秒');
   const stream = cv.captureStream(30);
@@ -894,11 +892,17 @@ $('mp4').addEventListener('click', async ()=>{
   $('rec').classList.remove('on'); setBusy(false); render(0,true);
   const type = rec.mimeType || mime || 'video/webm';
   const ext = type.includes('mp4') ? 'mp4' : 'webm';
-  pendingVideo = { blob:new Blob(chunks,{type:type.split(';')[0]}), name:baseName()+'.'+ext };
+  pendingVideo = { blob:new Blob(chunks,{type:type.split(';')[0]}), name:baseName()+'.'+ext, snap };
   status('錄好了！按下面的按鈕儲存' + (ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
   $('saveBox').classList.add('on');
 });
-$('saveVid').addEventListener('click', ()=>{ if(pendingVideo) saveBlob(pendingVideo.blob, pendingVideo.name); });
+$('saveVid').addEventListener('click', async ()=>{
+  if(!pendingVideo) return;
+  const v = pendingVideo;
+  const ok = await saveBlob(v.blob, v.name);
+  // 儲存後同樣彈出宣傳文案（需要有 IG 和日期）
+  if(ok && v.snap.ig && v.snap.date) openPromo(v.snap);
+});
 
 // ---------- 開始 ----------
 Promise.all(Object.keys(A).map(k=>loadImg(A[k].src).then(i=>img[k]=i))).then(async ()=>{
