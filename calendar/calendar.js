@@ -96,11 +96,11 @@
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       if (!blob) throw Error('月曆圖片未能產生，請再試一次');
       window.qgWorkflow?.progress('calendar',85,'準備下載 PNG');
+      // Store the generated calendar state before invoking browser download/share.
+      window.qgWorkflow?.record('calendar',{year:year.value,month:month.value,days},canvas);
       const ok = await saveBlob(blob, filename, message);
-      if(ok){
-        window.qgWorkflow?.finish('calendar',true,'月曆已準備好');
-        await window.qgWorkflow?.record('calendar',{year:year.value,month:month.value,days},canvas);
-      }else window.qgWorkflow?.fail('calendar','已取消下載');
+      if(ok)window.qgWorkflow?.finish('calendar',true,'月曆已準備好');
+      else window.qgWorkflow?.fail('calendar','已取消下載');
     } catch (error) { message(error.message); window.qgWorkflow?.fail('calendar','圖片產生失敗'); }
   };
   field('export').onclick = async () => {
