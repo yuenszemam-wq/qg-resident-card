@@ -132,7 +132,7 @@ if(sh&&$('tab-shadow')){
   const fontRow=node('label','ed-font');fontRow.append(node('span',null,'字體'));
   const font=node('select');font.id='shEditorFont';fontRow.append(font);
   const rows=node('div');rows.id='shEditorRows';
-  const fields=[['size','大小',-18,40],['dx','左右',-200,200],['dy','上下',-120,120]];
+  const fields=[['size','大小',-18,40],['sp','字距',-20,60],['dx','左右',-200,200],['dy','上下',-120,120]];
   for(const [key,label,min,max] of fields){
     const row=node('div','ed-row');row.append(node('span',null,label));
     const down=btn('−',null,'step');down.dataset.delta='-1';down.dataset.key=key;down.setAttribute('aria-label',label+'減少');
