@@ -50,45 +50,94 @@
 
 ✦✧✦✧✦✧✦✧✦✧✦✧✦`;
   }
+  // 動畫時序對照 Canva 原片逐格量度（30fps）
+  const NAME_FONT='900 {size}px "Chiron GoRound TC","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif';
+  const BANNER_PARTS=[[0,66,.55],[94,149,.67],[153,209,.8],[215,267,.93],[294,361,1.03]];
+  const ease=x=>1-Math.pow(1-x,3);
+  const pop=x=>x>=1?1:1+2.2*Math.pow(x-1,3)+1.2*Math.pow(x-1,2);
   function draw(t=5, s=details()) {
     if (!images) return;
     const progress = (start,duration) => Math.max(0,Math.min(1,(t-start)/duration));
-    function layer(id, opacity=1, y=0) {
+    function layer(id, opacity=1, y=0, scale=1, blur=0) {
+      if (opacity<=0) return;
+      const im=images[id], [x0,y0]=positions[id];
+      ctx.save();
       ctx.globalAlpha = opacity;
-      ctx.drawImage(images[id],positions[id][0],positions[id][1]+y);
+      if (blur>.05) ctx.filter='blur('+blur+'px)';
+      if (scale!==1) {
+        const cx=x0+im.width/2, cy=y0+im.height/2;
+        ctx.translate(cx,cy+y); ctx.scale(scale,scale);
+        ctx.drawImage(im,-im.width/2,-im.height/2);
+      } else ctx.drawImage(im,x0,y0+y);
+      ctx.restore();
     }
     layer(0);
-    const reveal = progress(.45,.92);
-    if (model.photo && reveal) {
+    // 相片：連相框一齊出現，先很模糊、約 1.4 秒變清
+    const shown = progress(.58,.45);
+    if (model.photo && shown) {
       ctx.save();
       ctx.beginPath(); ctx.ellipse(506,704,301,373,0,0,2*Math.PI); ctx.clip();
       const p = model.photo, scale = Math.max(602/p.width,746/p.height)*model.zoom;
       const w=p.width*scale, h=p.height*scale;
-      ctx.globalAlpha = reveal;
-      ctx.filter = reveal<1 ? 'blur('+((1-reveal)*18)+'px)' : 'none';
+      const blur = 28*(1-ease(progress(.85,.75)));
+      ctx.globalAlpha = shown;
+      if (blur>.05) ctx.filter = 'blur('+blur+'px)';
       ctx.drawImage(p,506-w/2+model.dx*(w-602)/200,704-h/2+model.dy*(h-746)/200,w,h);
       ctx.restore();
     }
-    layer(5,progress(.14,.64));
-    layer(3,progress(0,.42),-12*(1-progress(0,.42)));
-    layer(1,progress(0,.48));
-    layer(4,progress(.18,.62));
-    layer(2,progress(.3,.55));
-    layer(7,progress(.45,.74),8*Math.sin(t*2));
-    layer(8,progress(.26,.7),-8*Math.sin(t*2));
-    layer(6,progress(.92,.65),12*(1-progress(.92,.65)));
-    function line(key,value,y,size,start) {
-      if (!value) return;
-      const a=adj[key], shown=progress(start,.48);
-      ctx.globalAlpha=shown;
-      ctx.font='bold '+(size+a.size)+'px '+(key==='name'?FONT_NAME:FONT_HAND);
-      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
-      ctx.lineWidth=key==='name'?18:10; ctx.strokeStyle='#180d20'; ctx.fillStyle='#f4d9fa';
-      const x=506+a.dx, top=y+a.dy+16*(1-shown);
-      ctx.strokeText(value,x,top,820); ctx.fillText(value,x,top,820);
+    // 相框由細變大、由模糊變清
+    const frame=progress(.28,.36);
+    layer(5,Math.min(1,frame*1.6),0,.45+.55*ease(frame),8*(1-frame));
+    layer(4,progress(.3,.25));
+    layer(3,progress(.3,.25),-10*(1-ease(progress(.3,.25))));
+    layer(1,progress(0,.4));
+    // 心心及「出沒中」逐個彈出
+    const im2=images[2], [bx,by]=positions[2];
+    for (const [a,b,at] of BANNER_PARTS) {
+      const k=progress(at,.14); if (!k) continue;
+      const sc=.35+.65*pop(k), cx=bx+(a+b)/2, cy=by+im2.height/2;
+      ctx.save(); ctx.globalAlpha=Math.min(1,k*2);
+      ctx.translate(cx,cy); ctx.scale(sc,sc);
+      ctx.drawImage(im2,a,0,b-a,im2.height,-(b-a)/2,-im2.height/2,b-a,im2.height);
+      ctx.restore();
     }
-    line('name',s.name,1040,100,.54); line('ig',s.ig,1132,43,.85);
-    line('date',s.date && 'Date: '+s.date,1187,50,1.05);
+    layer(8,progress(.25,.25),-8*Math.sin(t*2));
+    layer(7,progress(.85,.3),8*Math.sin(t*2));
+    // Queen's Garden 由模糊淡入
+    const qg=progress(1,.35);
+    layer(6,qg,0,1,6*(1-qg));
+    // 文字逐字彈出（白→淡紫漸變、黑色粗邊）
+    function line(key,value,y,size,start,span,font,stroke) {
+      if (!value) return;
+      const a=adj[key], chars=[...value], n=chars.length, sz=size+a.size;
+      const step=Math.min(span/Math.max(1,n-1), .1);
+      ctx.save();
+      ctx.font=font.replace('{size}',sz);
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
+      const total=ctx.measureText(value).width, squeeze=Math.min(1,820/total);
+      ctx.translate(506+a.dx,y+a.dy); ctx.scale(squeeze,1);
+      const grad=ctx.createLinearGradient(0,-sz*.42,0,sz*.42);
+      grad.addColorStop(0,'#fcf4fc'); grad.addColorStop(1,'#d9a3e4');
+      ctx.lineWidth=stroke; ctx.strokeStyle='#120814'; ctx.fillStyle=grad;
+      const glyphs=[];
+      let before='';
+      chars.forEach((ch,i)=>{
+        const cw=ctx.measureText(ch).width, x=ctx.measureText(before).width-total/2+cw/2;
+        before+=ch;
+        const k=progress(start+i*step,.12);
+        if (k && ch.trim()) glyphs.push([ch,x,.3+.7*pop(k),Math.min(1,k*2.5)]);
+      });
+      for (const pass of ['stroke','fill']) for (const [ch,x,sc,al] of glyphs) {
+        ctx.save(); ctx.globalAlpha=al; ctx.translate(x,0); ctx.scale(sc,sc);
+        pass==='stroke'?ctx.strokeText(ch,0,0):ctx.fillText(ch,0,0);
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+    const hand='bold {size}px '+FONT_HAND;
+    line('name',s.name,1045,120,.8,.1,NAME_FONT,22);
+    line('ig',s.ig,1132,43,.97,.9,hand,10);
+    line('date',s.date && 'Date: '+s.date,1187,50,1,1.23,hand,10);
     ctx.globalAlpha=1;
   }
   async function start() {
@@ -96,6 +145,7 @@
     try {
       loading ??= Promise.all(positions.map((_,i)=>loadImg('shadow/'+(i?i+'.webp':'background.jpg'))));
       images=await loading; draw();
+      document.fonts.load(NAME_FONT.replace('{size}',120),field('name').value||'影').then(()=>{if(!busy)draw();},()=>{});
     } catch { loading=null; status('素材載入失敗，請重新整理。'); }
   }
   function invalidate() { pending=null; field('save').hidden=true; if (!busy) draw(); }
@@ -114,7 +164,7 @@
   function refreshControls(){ crop(); adjust(); }
   function redraw(){if (!busy) draw(5);}
   crop(); adjust(); field('target').onchange=adjust;
-  field('form').oninput=invalidate;
+  field('form').oninput=()=>{invalidate(); document.fonts.load(NAME_FONT.replace('{size}',120),field('name').value||'影').then(()=>{if(!busy)draw();},()=>{});};
   field('photo').onchange=async e=>{
     const file=e.target.files[0]; if (!file) return;
     const token=++upload, url=URL.createObjectURL(file);
@@ -150,7 +200,7 @@
     let stream, recorder;
     try {
       await start(); if (!images) return;
-      await Promise.all([document.fonts.load('bold 100px '+FONT_NAME,s.name||'影'),document.fonts.load('bold 50px '+FONT_HAND,'Date '+s.ig)]);
+      await Promise.all([document.fonts.load(NAME_FONT.replace('{size}',120),s.name||'影'),document.fonts.load('bold 50px '+FONT_HAND,'Date '+s.ig)]);
       const filename='影子精靈_'+s.name.replace(/[^\p{L}\p{N}_.-]/gu,'_');
       if (mode==='play') { await animate(s); return; }
       if (mode==='png') {
@@ -184,6 +234,6 @@
     const v=pending;
     if(v && await saveBlob(v.blob,v.filename,status)) openPromo(v.s,caption(v.s));
   };
-  window.qgShadow={start,busy:()=>busy,model,redraw,refreshControls,saveLayout:layout.save};
+  window.qgShadow={start,draw,busy:()=>busy,model,redraw,refreshControls,saveLayout:layout.save};
   if(!panel.hidden) start();
 })();
