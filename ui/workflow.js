@@ -32,6 +32,8 @@ async function transaction(mode,fn){
 }
 const all=()=>transaction('readonly',s=>s.getAll());
 const asBlob=(canvas,type='image/jpeg',quality=.85)=>new Promise(resolve=>{if(!canvas){resolve(null);return;}canvas.toBlob(resolve,type,quality);});
+const binary=async blob=>blob?await blob.arrayBuffer():null;
+const imageBytes=value=>value instanceof Blob?value:(value?new Blob([value],{type:'image/jpeg'}):null);
 async function thumb(canvas){
   if(!canvas)return null;
   const target=document.createElement('canvas');
@@ -94,7 +96,7 @@ async function record(template,data,canvas,photo){
     }
     const entry={id:template+':'+Date.now()+':'+Math.random().toString(36).slice(2,8),template,ts:Date.now(),
       data:typeof structuredClone==='function'?structuredClone(data):JSON.parse(JSON.stringify(data)),
-      thumb:await thumb(canvas),photo:await asBlob(photo,'image/jpeg',.9)};
+      thumb:await binary(await thumb(canvas)),photo:await binary(await asBlob(photo,'image/jpeg',.9))};
     await transaction('readwrite',s=>s.put(entry));
     const entries=(await all()).filter(e=>e.template===template).sort((a,b)=>b.ts-a.ts);
     if(entries.length>MAX)await transaction('readwrite',s=>{for(const old of entries.slice(MAX))s.delete(old.id);});
@@ -104,7 +106,7 @@ async function record(template,data,canvas,photo){
 function imageFromBlob(blob){
   return new Promise((resolve,reject)=>{
     if(!blob){resolve(null);return;}
-    const url=URL.createObjectURL(blob),img=new Image();
+    const url=URL.createObjectURL(imageBytes(blob)),img=new Image();
     img.onload=()=>{URL.revokeObjectURL(url);const cv=document.createElement('canvas');cv.width=img.naturalWidth;cv.height=img.naturalHeight;cv.getContext('2d').drawImage(img,0,0);resolve(cv);};
     img.onerror=()=>{URL.revokeObjectURL(url);reject(Error('相片無法讀取'))};img.src=url;
   });
@@ -170,7 +172,7 @@ async function display(template){
     for(const entry of entries){
       const row=document.createElement('div');row.className='qg-hist-row';
       const load=document.createElement('button');load.type='button';load.className='qg-hist-load';
-      if(entry.thumb||entry.thumbUrl){const img=document.createElement('img');if(entry.thumb){const u=URL.createObjectURL(entry.thumb);fresh.push(u);img.src=u;}else img.src=entry.thumbUrl;img.alt='';load.append(img);}
+      if(entry.thumb||entry.thumbUrl){const img=document.createElement('img');if(entry.thumb){const u=URL.createObjectURL(imageBytes(entry.thumb));fresh.push(u);img.src=u;}else img.src=entry.thumbUrl;img.alt='';load.append(img);}
       const meta=document.createElement('span');meta.className='qg-hist-meta';
       const title=document.createElement('strong');title.textContent=entry.template==='calendar'?entry.data.year+'-'+String(entry.data.month).padStart(2,'0'):(entry.data.name||'未命名');
       const when=document.createElement('small');when.textContent=new Date(entry.ts).toLocaleString('zh-HK',{dateStyle:'short',timeStyle:'short'});
