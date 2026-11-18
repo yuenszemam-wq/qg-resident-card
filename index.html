@@ -134,9 +134,36 @@
   .copymsg{font-size:13px;text-align:center;color:var(--muted);margin-top:8px;min-height:1.2em}
   .copymsg.ok{color:var(--gold)}
   .copymsg.err{color:#f0a0a0}
+  /* 頂部分頁欄（固定） */
+  body{padding-top:calc(70px + env(safe-area-inset-top))}
+  .tabs{position:fixed;top:0;left:0;right:0;z-index:30;display:flex;justify-content:center;gap:8px;
+    padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top));
+    background:rgba(22,16,31,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line)}
+  .tabs button{flex:1;max-width:260px;padding:10px 0;border-radius:999px;border:1px solid var(--line);
+    background:#120c1a;color:var(--muted);font-size:16px;cursor:pointer}
+  .tabs button.on{background:linear-gradient(135deg,#8c5cc7,#c46a9a);border-color:transparent;color:#fff;font-weight:600}
+  .tabs button:disabled{opacity:.6}
+  .tab[hidden]{display:none}
+  /* 每週更表 */
+  input[type=date]{-webkit-appearance:none;appearance:none;width:100%;min-height:46px;font-size:17px;padding:10px 12px;
+    border-radius:10px;border:1px solid var(--line);background:#120c1a;color:var(--text);outline:none;color-scheme:dark}
+  input[type=date]:focus{border-color:var(--accent)}
+  #tab-weekly .row>div{min-width:0}
+  input[type=date]{min-width:0;max-width:100%;display:block}
+  input[type=date]:disabled{opacity:.5}
+  .wk-nav{display:flex;gap:10px;margin-top:12px}
+  .wk-nav .small{flex:1;padding:10px 6px;font-size:14px}
+  .dateout.warn{color:#f0a0a0}
 </style>
 </head>
 <body>
+  <nav class="tabs" role="tablist" aria-label="分頁">
+    <button role="tab" id="tabBtnPromo" data-tab="promo" class="on" aria-selected="true">限定宣傳</button>
+    <button role="tab" id="tabBtnWeekly" data-tab="weekly" aria-selected="false">每週更表</button>
+  </nav>
+
+  <section class="tab" id="tab-promo" role="tabpanel" aria-labelledby="tabBtnPromo">
   <h1>Queen's Garden</h1>
   <p class="sub">限定居民卡製作：換相片、填資料、下載圖片或影片</p>
 
@@ -210,6 +237,45 @@
   <div class="save" id="saveBox"><button class="btn primary full" id="saveVid" style="width:100%">💾 儲存影片</button></div>
 
   <p class="note">提示：影片是即時錄製的，按下後約 5 秒完成，錄影期間請不要離開這個頁面。字型是相近的網上字型，和 Canva 原版會有少少分別。</p>
+  </section>
+
+  <section class="tab" id="tab-weekly" role="tabpanel" aria-labelledby="tabBtnWeekly" hidden>
+    <h1>Queen's Garden</h1>
+    <p class="sub">每週更表：揀日期，下載圖片或影片</p>
+
+    <div class="stage">
+      <canvas id="wkCv" width="1012" height="1350"></canvas>
+      <div class="rec" id="wkRec">● 錄影中</div>
+    </div>
+
+    <div class="panel">
+      <div class="row">
+        <div>
+          <label for="wkStart">開始日期</label>
+          <input type="date" id="wkStart">
+        </div>
+        <div>
+          <label for="wkEnd">結束日期</label>
+          <input type="date" id="wkEnd">
+        </div>
+      </div>
+      <div class="dateout" id="wkOut"></div>
+      <div class="wk-nav">
+        <button class="small" id="wkPrev">‹ 上一週</button>
+        <button class="small" id="wkNext">下一週 ›</button>
+      </div>
+    </div>
+
+    <div class="btns">
+      <button class="btn full" id="wkPlay">▶ 預覽動畫</button>
+      <button class="btn primary" id="wkPng">下載圖片 PNG</button>
+      <button class="btn primary" id="wkMp4">下載影片（5 秒）</button>
+    </div>
+    <div class="status" id="wkStatus"></div>
+    <div class="save" id="wkSaveBox"><button class="btn primary full" id="wkSaveVid" style="width:100%">💾 儲存影片</button></div>
+
+    <p class="note">揀開始日期後，結束日期會自動設為 6 日後，亦可以自己改。影片是即時錄製的，按下後約 5 秒完成，錄影期間請不要離開這個頁面。</p>
+  </section>
 
   <div class="modal" id="promo" hidden role="dialog" aria-modal="true" aria-labelledby="promoTitle">
     <div class="sheet">
@@ -825,23 +891,23 @@ if(window.claude && typeof window.claude.use==='function'){
 function baseName(){ return ('限定居民_'+(state.name||'card')).replace(/[\\\/:*?"<>|]/g,''); }
 
 // 回傳 true = 已儲存／已觸發下載；false = 使用者取消或失敗
-async function saveBlob(blob, filename){
+async function saveBlob(blob, filename, say=status){
   if(dl){
-    try{ await dl.save({filename, data:blob}); status('已儲存：'+filename); return true; }
-    catch(err){ if(err && err.code==='declined'){ status('已取消儲存'); return false; } }
+    try{ await dl.save({filename, data:blob}); say('已儲存：'+filename); return true; }
+    catch(err){ if(err && err.code==='declined'){ say('已取消儲存'); return false; } }
   }
   const file = new File([blob], filename, {type:blob.type});
   if(navigator.canShare && navigator.canShare({files:[file]})){
-    try{ await navigator.share({files:[file]}); status('完成'); return true; }
-    catch(err){ if(err && err.name==='AbortError'){ status('已取消'); return false; } }
+    try{ await navigator.share({files:[file]}); say('完成'); return true; }
+    catch(err){ if(err && err.name==='AbortError'){ say('已取消'); return false; } }
   }
   try{
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = filename;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href), 10000);
-  }catch(err){ status('下載失敗，請再試一次'); return false; }
-  status('已開始下載：'+filename);
+  }catch(err){ say('下載失敗，請再試一次'); return false; }
+  say('已開始下載：'+filename);
   return true;
 }
 
@@ -1000,6 +1066,370 @@ Promise.all(Object.keys(A).map(k=>loadImg(A[k].src).then(i=>img[k]=i))).then(asy
   render(0,true);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{ if(!playing) render(0,true); });
 });
+</script>
+<script>
+// ================= 每週更表 =================
+// 素材在 weekly/ 資料夾，第一次打開這個分頁時才載入
+(function(){
+const W = 1012, H = 1350;
+const $ = id => document.getElementById(id);
+const cv = $('wkCv'), cardCtx = cv.getContext('2d');
+let g = cardCtx; // 畫模糊效果時會暫時換成離屏畫布
+
+// 素材位置（卡片像素，對照 Canva 原片）
+const L = {
+  bg:{f:'bg.jpg',x:0,y:0}, lace:{f:'lace.webp',x:38,y:265}, photo:{f:'photo.jpg',x:221,y:313},
+  pearl:{f:'pearl.webp',x:210,y:307}, emblem:{f:'emblem.webp',x:316,y:1074},
+  keyL:{f:'keyL.webp',x:2,y:1}, keyR:{f:'keyR.webp',x:812,y:755},
+  ribbon:{f:'ribbon.webp',x:75,y:54}, crown:{f:'crown.webp',x:364,y:167},
+  qg:{f:'qg.webp',x:226,y:264}, yisj:{f:'yisj.webp',x:119,y:1238},
+};
+const img = {}, blurImg = {};
+let assetsReady = false; // 全部素材載入完成先畫
+// 相框形狀：沿用限定宣傳的 PHOTO_PATH，按這張卡的相框大小縮放
+const BOX = {x:209.92, y:306.72, w:584.95, h:807.06};
+const BOX_SCALE = BOX.w/708.7;
+const LACE_C = {x:505.5, y:733};
+// 逐字切開的位置（相對素材左邊）
+const QG_CUTS = [0,59,100,140,177,217,232,277,357,401,441,482,521,567];
+const YISJ_CUTS = Array.from({length:11}, (_,i)=>i*77.5);
+
+// 日期文字：沿彩帶弧形排列
+const DATE_FONT_FAM = '"Gochi Hand","Kalam","Chalkboard SE","Comic Sans MS",cursive';
+const DATE = { size:49, sp:0, spaceW:2.2, cx:512, top:121, R:700, ax:512, ay:150,
+  outline:'#2a1a20', stroke:9, bold:3.8, skew:0.16 };
+
+const state = { start:null, end:null, text:'' };
+let playing = false;
+
+// ---------- 工具 ----------
+const lerp = (a,b,p)=>a+(b-a)*p;
+// 模糊版：先縮到很細，再放大到 1/3 尺寸（避免放大時出現格仔）
+function makeBlur(src, f){
+  const b = mkCanvas(Math.max(4, Math.round(src.width/f)), Math.max(4, Math.round(src.height/f)));
+  const c = b.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(src,0,0,b.width,b.height);
+  const u = mkCanvas(Math.round(src.width/3), Math.round(src.height/3));
+  const uc = u.getContext('2d'); uc.imageSmoothingQuality = 'high'; uc.drawImage(b,0,0,u.width,u.height);
+  return u;
+}
+// 畫一個素材：alpha 透明度，blur 0~1 模糊程度，scale 以素材中心縮放
+function layer(key, alpha=1, o={}){
+  const I = img[key]; if(!I || alpha<=0.003) return;
+  const P = L[key];
+  g.save();
+  g.translate(P.x + I.width/2 + (o.dx||0), P.y + I.height/2 + (o.dy||0));
+  const s = o.scale||1; g.scale(s,s);
+  const bm = o.blur||0;
+  g.imageSmoothingQuality = 'high';
+  if(bm>0.003 && blurImg[key]){ g.globalAlpha = alpha*Math.min(1,bm*2); g.drawImage(blurImg[key], -I.width/2, -I.height/2, I.width, I.height); }
+  if(bm<1){ g.globalAlpha = alpha*(1-bm); g.drawImage(I, -I.width/2, -I.height/2); }
+  g.restore();
+}
+// 逐字畫切開的圖片文字
+function sliced(key, cuts, fn){
+  const I = img[key]; if(!I) return;
+  const P = L[key];
+  g.save();
+  for(let i=0;i<cuts.length-1;i++){
+    const r = fn(i); if(!r || r.a<=0.003) continue;
+    const sx = Math.round(cuts[i]), ex = i===cuts.length-2 ? I.width : Math.round(cuts[i+1]);
+    g.globalAlpha = r.a;
+    g.drawImage(I, sx, 0, ex-sx, I.height, P.x+sx, P.y+(r.dy||0), ex-sx, I.height);
+  }
+  g.restore();
+}
+
+// 整組圖層一齊模糊、縮放（相片＋珍珠＋徽章）
+const fx = mkCanvas(W,H), fxc = fx.getContext('2d');
+const fxM = mkCanvas(Math.round(W/4), Math.round(H/4)), fxMc = fxM.getContext('2d');
+const fxS = mkCanvas(Math.round(W/26), Math.round(H/26)), fxSc = fxS.getContext('2d');
+const fxU = mkCanvas(Math.round(W/4), Math.round(H/4)), fxUc = fxU.getContext('2d');
+[fxMc, fxSc, fxUc].forEach(c=>{ c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; });
+function group(fn, alpha, blur, scale, cx, cy){
+  if(alpha<=0.003) return;
+  if(alpha>=1 && blur<=0.003 && scale===1){ fn(); return; }
+  const main = g;
+  g = fxc;
+  g.setTransform(1,0,0,1,0,0); g.globalAlpha = 1; g.clearRect(0,0,W,H);
+  try{ fn(); } finally { g = main; }
+  g.save();
+  g.translate(cx,cy); g.scale(scale,scale); g.translate(-cx,-cy);
+  g.imageSmoothingEnabled = true;
+  if(blur>0.003){
+    fxMc.clearRect(0,0,fxM.width,fxM.height); fxMc.drawImage(fx,0,0,fxM.width,fxM.height);
+    fxSc.clearRect(0,0,fxS.width,fxS.height); fxSc.drawImage(fxM,0,0,fxS.width,fxS.height);
+    fxUc.clearRect(0,0,fxU.width,fxU.height); fxUc.drawImage(fxS,0,0,fxU.width,fxU.height);
+    g.imageSmoothingQuality = 'high';
+    g.globalAlpha = alpha*Math.min(1, blur*2);
+    g.drawImage(fxU,0,0,W,H);
+  }
+  if(blur<1){ g.globalAlpha = alpha*(1-blur); g.drawImage(fx,0,0); }
+  g.restore();
+}
+
+function drawPhoto(){
+  g.save();
+  g.translate(BOX.x, BOX.y); g.scale(BOX_SCALE, BOX_SCALE); g.clip(PHOTO_PATH);
+  g.setTransform(1,0,0,1,0,0);
+  g.drawImage(img.photo, L.photo.x, L.photo.y);
+  g.restore();
+}
+
+// ---------- 日期文字 ----------
+let layout = null;
+function dateFont(){ return `400 ${DATE.size}px ${DATE_FONT_FAM}`; }
+function makeLayout(text){
+  const c = cardCtx; c.save(); c.font = dateFont();
+  const chars = [...text];
+  const w = chars.map(ch=> ch===' ' ? c.measureText(' ').width*DATE.spaceW : c.measureText(ch).width);
+  c.restore();
+  const total = w.reduce((a,b)=>a+b,0) + DATE.sp*(chars.length-1);
+  let x = -total/2;
+  const items = chars.map((ch,i)=>{ const mid = x + w[i]/2; x += w[i] + DATE.sp; return {ch, a: mid/DATE.R}; });
+  return {text, items, key:document.fonts && document.fonts.check ? document.fonts.check(dateFont(), text) : true};
+}
+// 日期由細到大不停輕輕跳動（對照 Canva 原片：約 0.89 秒一次，最大約 1.28 倍）
+const pulse = t => 1.14 + 0.14*Math.cos(2*Math.PI*(t-1.97)/0.887);
+function drawDate(t, final){
+  if(!state.text) return;
+  if(!layout || layout.text!==state.text || !layout.key) layout = makeLayout(state.text);
+  const s = final ? 1 : pulse(t);
+  const CY = DATE.top + DATE.R;
+  g.save();
+  g.translate(DATE.ax, DATE.ay); g.scale(s,s); g.translate(-DATE.ax, -DATE.ay);
+  g.font = dateFont(); g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineJoin = 'round'; g.miterLimit = 2;
+  layout.items.forEach((it,i)=>{
+    if(it.ch===' ') return;
+    let k = 1;
+    if(!final){
+      const p = prog(t, 0.3 + i*0.052, 0.1);
+      if(p<=0) return;
+      k = easeBack(p, 2);
+    }
+    const px = DATE.cx + DATE.R*Math.sin(it.a), py = CY - DATE.R*Math.cos(it.a);
+    g.save();
+    g.translate(px, py); g.rotate(it.a); g.scale(k,k);
+    if(DATE.skew) g.transform(1,0,-DATE.skew,1,0,0); // 原稿字體稍為向右斜
+    g.strokeStyle = DATE.outline; g.lineWidth = DATE.stroke + DATE.bold;
+    g.strokeText(it.ch, 0, 0);
+    g.strokeStyle = '#fff'; g.lineWidth = DATE.bold; g.strokeText(it.ch, 0, 0);
+    g.fillStyle = '#fff'; g.fillText(it.ch, 0, 0);
+    g.restore();
+  });
+  g.restore();
+}
+
+// ---------- 畫面（t = 秒；final = 靜態完成圖） ----------
+function render(t, final=false){
+  g = cardCtx;
+  g.setTransform(1,0,0,1,0,0); g.globalAlpha = 1;
+  if(!assetsReady){ g.fillStyle = '#16101f'; g.fillRect(0,0,W,H); return; }
+  if(final) t = 99;
+  g.drawImage(img.bg, 0, 0);
+  // 蕾絲：一直順時針轉（每秒 18 度）
+  if(img.lace){
+    g.save();
+    g.translate(LACE_C.x, LACE_C.y); g.rotate((final?0:t)*18*Math.PI/180); g.translate(-LACE_C.x, -LACE_C.y);
+    g.drawImage(img.lace, L.lace.x, L.lace.y);
+    g.restore();
+  }
+  // 左上鑰匙：半透明淡入
+  const kl = easeOut(prog(t,0.05,0.3));
+  layer('keyL', 0.75*kl, {dx:-105, dy:-16});
+  // 右下鑰匙：1 秒左右由右邊淡入
+  const kr = easeOut(prog(t,0.88,0.35));
+  layer('keyR', 0.8*kr, {dx:112 + 40*(1-kr), dy:-4, scale:0.95});
+
+  // 相片：0.65 秒起由細變大、由模糊變清（前段保持很模糊，約 0.9 秒才轉清）
+  const pt = prog(t,0.65,0.32), pg = easeOut(pt);
+  const gcx = BOX.x+BOX.w/2, gcy = BOX.y+BOX.h/2;
+  group(drawPhoto, prog(t,0.65,0.22), 1-Math.pow(pt,4), 0.85+0.15*pg, gcx, gcy);
+  // 珍珠框和徽章：相片差不多清晰時才出現
+  const pe = easeOut(prog(t,0.9,0.1));
+  group(()=>{ layer('pearl'); layer('emblem'); }, pe, 0.7*(1-pe), 0.97+0.03*pe, gcx, gcy);
+
+  // 皇冠：0.42 秒淡入
+  const cr = easeOut(prog(t,0.42,0.18));
+  layer('crown', cr, {blur:1-cr});
+  // 彩帶：0.13 秒起由細變大、由模糊變清（稍為由左邊移入），約 0.43 秒變清
+  const rp = prog(t,0.13,0.3), rb = easeOut(rp);
+  layer('ribbon', prog(t,0.13,0.25), {blur:1-rp, dx:-50*(1-rb), scale:0.85+0.15*rb});
+  // 日期：逐字彈出，之後不停輕輕放大縮小
+  drawDate(t, final);
+  // Queen's Garden：逐字由上方跌下（0.5 秒起，每字約 0.067 秒，空格停一格）
+  sliced('qg', QG_CUTS, i=>{
+    const st = 0.5 + (i + (i>=7?1:0))*0.0667;
+    return {a: prog(t,st,0.03), dy: -14*(1-easeOut(prog(t,st,0.12)))};
+  });
+  // 異世界居民出沒啟示錄：逐字由下方升上（1.06 秒起，每字約 0.068 秒）
+  sliced('yisj', YISJ_CUTS, i=>{
+    const st = 1.06 + i*0.068;
+    return {a: prog(t,st,0.03), dy: 18*(1-easeOut(prog(t,st,0.12)))};
+  });
+}
+
+// ---------- 日期輸入 ----------
+const DOW = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+const pad = n => String(n).padStart(2,'0');
+const toVal = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+function fromVal(v){ const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v||''); return m ? new Date(+m[1], +m[2]-1, +m[3]) : null; }
+const addDays = (d,n)=>{ const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const fmt = d => `${d.getDate()}/${d.getMonth()+1} (${DOW[d.getDay()]})`;
+// 預設：今個星期一（今日是星期一就用今日，否則用下一個星期一）
+function nextMonday(){ const d = new Date(); d.setHours(0,0,0,0); return addDays(d, (8-d.getDay())%7); }
+
+function updateDates(){
+  state.start = fromVal($('wkStart').value);
+  state.end = fromVal($('wkEnd').value);
+  const out = $('wkOut');
+  if(!state.start || !state.end){ state.text = ''; out.textContent = '請選擇開始及結束日期'; out.className = 'dateout'; }
+  else {
+    state.text = fmt(state.start)+' ~ '+fmt(state.end);
+    const bad = state.end < state.start;
+    out.textContent = bad ? '結束日期早過開始日期，請檢查' : '會顯示為：'+state.text;
+    out.className = 'dateout' + (bad ? ' warn' : '');
+  }
+  ensureFont().then(()=>{ layout = null; if(!playing) render(0,true); });
+  if(!playing) render(0,true);
+}
+function setStart(d){
+  $('wkStart').value = toVal(d);
+  $('wkEnd').value = toVal(addDays(d,6));
+  updateDates();
+}
+$('wkStart').addEventListener('change', ()=>{ const d = fromVal($('wkStart').value); if(d) setStart(d); else updateDates(); });
+$('wkStart').addEventListener('input', ()=>{ const d = fromVal($('wkStart').value); if(d) setStart(d); });
+['change','input'].forEach(ev=>$('wkEnd').addEventListener(ev, updateDates));
+$('wkPrev').addEventListener('click', ()=>setStart(addDays(state.start||nextMonday(), -7)));
+$('wkNext').addEventListener('click', ()=>setStart(addDays(state.start||nextMonday(), 7)));
+
+let fontP = null;
+function ensureFont(){
+  if(!document.fonts || !document.fonts.load) return Promise.resolve();
+  const p = document.fonts.load(dateFont(), '0123456789/()~ '+DOW.join('')).catch(()=>{});
+  return Promise.race([p, new Promise(r=>setTimeout(r,6000))]);
+}
+
+// ---------- 播放 ----------
+const DURATION = 5;
+function playOnce(){
+  return new Promise(res=>{
+    playing = true;
+    const t0 = performance.now();
+    function step(now){
+      const t = (now-t0)/1000;
+      render(Math.min(t,DURATION));
+      if(t < DURATION) requestAnimationFrame(step);
+      else { playing = false; res(); }
+    }
+    requestAnimationFrame(step);
+  });
+}
+function setBusy(b){ ['wkPlay','wkPng','wkMp4','wkPrev','wkNext','wkStart','wkEnd'].forEach(id=>$(id).disabled=b); }
+const say = m => $('wkStatus').textContent = m||'';
+function ready(){
+  if(!assetsReady){ say('素材仲載入緊，請稍等'); return false; }
+  if(!state.text){ say('請選擇日期'); return false; }
+  if(state.end < state.start){ say('結束日期早過開始日期，請檢查'); return false; }
+  return true;
+}
+function baseName(){
+  const a = state.start, b = state.end;
+  return `每週更表_${a.getDate()}-${a.getMonth()+1}至${b.getDate()}-${b.getMonth()+1}`;
+}
+$('wkPlay').addEventListener('click', async ()=>{
+  if(playing || !assetsReady) return;
+  await ensureFont(); layout = null;
+  setBusy(true); await playOnce(); setBusy(false); render(0,true);
+});
+$('wkPng').addEventListener('click', async ()=>{
+  if(playing || !ready()) return;
+  setBusy(true);
+  try{
+    await ensureFont(); layout = null; render(0,true);
+    const blob = await new Promise(r=>cv.toBlob(r,'image/png'));
+    if(!blob){ say('圖片生成失敗，請再試一次'); return; }
+    await saveBlob(blob, baseName()+'.png', say);
+  }catch(err){ say('圖片生成失敗，請再試一次'); }
+  finally{ setBusy(false); }
+});
+
+let pendingVideo = null;
+$('wkMp4').addEventListener('click', async ()=>{
+  if(playing || !ready()) return;
+  const mime = pickMime();
+  if(mime===null || !cv.captureStream){ say('這個瀏覽器不支援錄影，請改用 iPhone Safari 或電腦版 Chrome'); return; }
+  await ensureFont(); layout = null;
+  const name = baseName();
+  $('wkSaveBox').classList.remove('on'); pendingVideo = null;
+  setBusy(true); $('wkRec').classList.add('on'); say('錄影中…約 5 秒');
+  const stream = cv.captureStream(30);
+  let rec;
+  try{ rec = new MediaRecorder(stream, mime ? {mimeType:mime, videoBitsPerSecond:8_000_000} : {videoBitsPerSecond:8_000_000}); }
+  catch(e){ rec = new MediaRecorder(stream); }
+  const chunks = [];
+  rec.ondataavailable = e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+  const stopped = new Promise(r=>rec.onstop=r);
+  playing = true; render(0);
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  rec.start(100);
+  const holdEnd = performance.now()+250;
+  await new Promise(r=>{ (function hold(){ render(0); if(performance.now()<holdEnd) requestAnimationFrame(hold); else r(); })(); });
+  await playOnce();
+  await new Promise(r=>setTimeout(r,150));
+  rec.stop(); await stopped;
+  stream.getTracks().forEach(t=>t.stop());
+  $('wkRec').classList.remove('on'); setBusy(false); render(0,true);
+  const type = rec.mimeType || mime || 'video/webm';
+  const ext = type.includes('mp4') ? 'mp4' : 'webm';
+  pendingVideo = { blob:new Blob(chunks,{type:type.split(';')[0]}), name:name+'.'+ext };
+  say('錄好了！按下面的按鈕儲存' + (ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
+  $('wkSaveBox').classList.add('on');
+});
+$('wkSaveVid').addEventListener('click', async ()=>{
+  if(pendingVideo) await saveBlob(pendingVideo.blob, pendingVideo.name, say);
+});
+
+// ---------- 開始（第一次打開分頁時載入素材） ----------
+let started = false;
+function start(){
+  if(started) return; started = true;
+  setStart(nextMonday());
+  say('載入素材中…');
+  Promise.all(Object.keys(L).map(k=>loadImg('weekly/'+L[k].f).then(i=>{ img[k]=i; })))
+    .then(async ()=>{
+      ['ribbon','crown'].forEach(k=>blurImg[k]=makeBlur(img[k],26));
+      assetsReady = true;
+      say('');
+      render(0,true);
+      await ensureFont(); layout = null;
+      render(0,true);
+    })
+    .catch(()=>{ started = false; say('素材載入失敗，請重新整理頁面'); });
+}
+window.qgWeekly = { start, isBusy:()=>playing, render, state, DATE, resetLayout:()=>{ layout = null; } };
+})();
+
+// ================= 分頁切換 =================
+(function(){
+  const TABS = ['promo','weekly'];
+  const btns = [...document.querySelectorAll('.tabs button')];
+  function show(name, push){
+    if(!TABS.includes(name)) name = 'promo';
+    TABS.forEach(n=>{ document.getElementById('tab-'+n).hidden = n!==name; });
+    btns.forEach(b=>{ const on = b.dataset.tab===name; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+    if(name==='weekly') window.qgWeekly.start();
+    if(push){ try{ history.replaceState(null, '', name==='promo' ? location.pathname+location.search : '#'+name); }catch(e){} }
+    window.scrollTo(0,0);
+  }
+  btns.forEach(b=>b.addEventListener('click', ()=>{
+    // 錄影或播放中不可以轉分頁
+    if(playing || window.qgWeekly.isBusy()) return;
+    show(b.dataset.tab, true);
+  }));
+  show((location.hash||'').slice(1), false);
+})();
 </script>
 </body>
 </html>
