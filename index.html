@@ -43,17 +43,41 @@
   .row{display:flex;gap:10px}
   .row>div{flex:1}
   .dateout{font-size:12px;color:var(--gold);margin-top:5px;min-height:1em}
-  details.adj{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:0 14px;margin-top:14px}
-  details.adj summary{cursor:pointer;padding:13px 0;font-size:15px;color:var(--text);list-style:none}
-  details.adj summary::-webkit-details-marker{display:none}
-  details.adj summary::after{content:"▾";float:right;color:var(--muted)}
-  details.adj[open] summary::after{content:"▴"}
-  .adj-group{border-top:1px solid var(--line);padding:10px 0 12px}
-  .adj-head{display:flex;align-items:center;justify-content:space-between;font-size:14px;color:var(--gold);margin-bottom:4px}
-  .adj-row{display:grid;grid-template-columns:3.2em 1fr 3em;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-top:6px}
-  .adj-row input{width:100%;accent-color:var(--accent)}
-  .adj-row output{text-align:right;font-variant-numeric:tabular-nums;color:var(--text)}
-  .adj-foot{border-top:1px solid var(--line);padding:12px 0 14px;text-align:center}
+  .adj-open{width:100%;display:flex;align-items:center;gap:10px;padding:12px;border-radius:10px;border:1px solid var(--line);
+    background:#120c1a;color:var(--text);font-size:16px;cursor:pointer;text-align:left}
+  .adj-open .t{flex:1}
+  .adj-open .go{color:var(--accent);font-size:14px}
+  .adj-open:disabled{opacity:.5}
+  .adj-sum{font-size:12px;color:var(--muted);margin-top:6px}
+  .adj-sum.on{color:var(--gold)}
+  /* 文字微調：全螢幕編輯（上面即時預覽，下面控制） */
+  .editor{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;background:var(--bg);
+    padding-top:env(safe-area-inset-top)}
+  .editor[hidden]{display:none}
+  .ed-head{flex:none;display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}
+  .ed-head h2{flex:1;margin:0;font-size:16px;font-weight:600;color:var(--gold)}
+  .ed-done{padding:8px 18px;border-radius:999px;border:none;background:linear-gradient(135deg,#8c5cc7,#c46a9a);
+    color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+  .ed-view{flex:1;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;
+    padding:8px;touch-action:none;user-select:none;-webkit-user-select:none}
+  #pv{display:block;border-radius:10px;border:1px solid var(--line);background:#000;cursor:grab}
+  .ed-tip{font-size:12px;color:var(--muted);text-align:center;margin:0 0 8px}
+  .ed-ctrl{flex:none;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 14px calc(12px + env(safe-area-inset-bottom))}
+  .ed-ctrl>div{max-width:560px;margin:0 auto}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:3px;background:#120c1a;
+    border:1px solid var(--line);border-radius:11px}
+  .seg button{padding:8px 0;border:none;border-radius:8px;background:transparent;color:var(--muted);font-size:15px;cursor:pointer}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
+  .ed-row{display:grid;grid-template-columns:2.4em 38px 1fr 38px 2.6em;align-items:center;gap:6px;
+    margin-top:8px;font-size:13px;color:var(--muted)}
+  .ed-row input{width:100%;accent-color:var(--accent)}
+  .ed-row output{text-align:right;font-variant-numeric:tabular-nums;color:var(--text);font-size:14px}
+  .step{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:#120c1a;color:var(--text);
+    font-size:20px;line-height:1;cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+  .step:active{background:var(--accent)}
+  .ed-foot{display:flex;gap:8px;margin-top:10px}
+  .ed-foot .small{flex:1;padding:9px 6px}
   .file{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:10px;
     border:1.5px dashed var(--accent);color:var(--text);font-size:16px;cursor:pointer;background:#1a1226}
   .file input{display:none}
@@ -131,11 +155,31 @@
     <div class="dateout" id="dateout"></div>
   </div>
 
-  <details class="adj" id="adjBox">
-    <summary>5. 文字微調（字距、位置）</summary>
-    <div id="adjGroups"></div>
-    <div class="adj-foot"><button class="small" id="adjResetAll">全部重設</button></div>
-  </details>
+  <div class="panel">
+    <label>5. 文字微調（字距、位置）</label>
+    <button class="adj-open" id="adjOpen"><span>✏️</span><span class="t">打開微調（可即時預覽）</span><span class="go">›</span></button>
+    <div class="adj-sum" id="adjSum"></div>
+  </div>
+
+  <div class="editor" id="editor" hidden role="dialog" aria-modal="true" aria-labelledby="edTitle">
+    <div class="ed-head">
+      <h2 id="edTitle">文字微調</h2>
+      <button class="small" id="edZoom">🔍 放大文字</button>
+      <button class="ed-done" id="edDone">完成</button>
+    </div>
+    <div class="ed-view" id="edView">
+      <canvas id="pv" aria-label="即時預覽"></canvas>
+    </div>
+    <div class="ed-ctrl"><div>
+      <div class="ed-tip" id="edTip">可以直接在卡上拖動文字</div>
+      <div class="seg" id="edSeg" role="tablist"></div>
+      <div id="edRows"></div>
+      <div class="ed-foot">
+        <button class="small" id="edReset">重設名字</button>
+        <button class="small" id="edResetAll">全部重設</button>
+      </div>
+    </div></div>
+  </div>
 
   <div class="btns">
     <button class="btn full" id="play">▶ 預覽動畫</button>
@@ -272,7 +316,9 @@ function drawPhoto(alpha, blurMix, scale){
 }
 
 // 有描邊的文字（可逐字動畫）
+const textBounds = {};
 function outlinedText(text, cx, cy, o){
+  if(o.key) delete textBounds[o.key];
   if(!text) return;
   ctx.save();
   ctx.font = o.font;
@@ -285,6 +331,12 @@ function outlinedText(text, cx, cy, o){
   let total = widths.reduce((a,b)=>a+b,0) + sp*(chars.length-1);
   let k = 1;
   if(o.maxWidth && total > o.maxWidth){ k = o.maxWidth/total; }
+  // 記錄文字範圍（卡片座標），供微調預覽畫框及點選
+  if(o.key){
+    const m = ctx.measureText(text);
+    const asc = m.actualBoundingBoxAscent ?? fontPx*0.6, desc = m.actualBoundingBoxDescent ?? fontPx*0.6;
+    textBounds[o.key] = {x:cx-total*k/2, y:cy-asc*k, w:total*k, h:(asc+desc)*k};
+  }
   ctx.translate(cx, cy); ctx.scale(k,k);
   let x = -total/2;
   chars.forEach((c,i)=>{
@@ -308,6 +360,10 @@ function outlinedText(text, cx, cy, o){
 
 // ---------- 畫面（t = 秒；final = 靜態完成圖） ----------
 function render(t, final=false){
+  renderCard(t, final);
+  if(edOpen) drawPreview();
+}
+function renderCard(t, final){
   if(final) t = 99;
   ctx.setTransform(1,0,0,1,0,0);
   ctx.globalAlpha = 1;
@@ -344,26 +400,27 @@ function render(t, final=false){
 
   // 名字：淡入放大
   const nm = prog(t,0.7,0.4);
+  delete textBounds.name;
   if(state.name){
     ctx.save();
     const s = nm>0 ? 0.85+0.15*easeBack(nm) : 0.85;
     const an = state.adj.name, nx = W/2 + an.dx, ny = 1009 + an.dy;
     ctx.translate(nx, ny + bob(0.9)); ctx.scale(s,s); ctx.translate(-nx,-ny);
-    outlinedText(state.name, nx, ny, {font:nameFontSize([...state.name].length)+'px '+FONT_NAME, fill:WARM_WHITE, stroke:30, bold:0.065, spacing:an.sp, alpha:easeOut(nm), maxWidth:760});
+    outlinedText(state.name, nx, ny, {key:'name', font:nameFontSize([...state.name].length)+'px '+FONT_NAME, fill:WARM_WHITE, stroke:30, bold:0.065, spacing:an.sp, alpha:easeOut(nm), maxWidth:760});
     ctx.restore();
   }
 
   // IG
   const ig = easeOut(prog(t,0.9,0.3));
   const ai = state.adj.ig;
-  outlinedText(state.ig, W/2 + ai.dx, 1100 + ai.dy + 10*(1-ig) + bob(1.8), {font:'400 54px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.02, spacing:ai.sp, alpha:ig, maxWidth:820});
+  outlinedText(state.ig, W/2 + ai.dx, 1100 + ai.dy + 10*(1-ig) + bob(1.8), {key:'ig', font:'400 54px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.02, spacing:ai.sp, alpha:ig, maxWidth:820});
 
   // Queen's Garden（逐字）
   drawSliced('qg', bob(2.7), typeA(1.0,0.08), typeY(1.0,0.08,24));
 
   // 日期（逐字）
   const ad = state.adj.date;
-  outlinedText(state.date, W/2 + ad.dx, 1270 + ad.dy + bob(3.6), {font:'400 58px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.03, spacing:1 + ad.sp, maxWidth:700,
+  outlinedText(state.date, W/2 + ad.dx, 1270 + ad.dy + bob(3.6), {key:'date', font:'400 58px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.03, spacing:1 + ad.sp, maxWidth:700,
     charAlpha:typeA(1.25,0.1), charDy:typeY(1.25,0.1,24)});
 }
 
@@ -417,32 +474,154 @@ function ensureFonts(){
 // ---------- 文字微調 ----------
 const ADJ_ITEMS = [['name','名字'],['ig','IG'],['date','日期']];
 const ADJ_FIELDS = [['sp','字距',-20,60],['dx','左右',-200,200],['dy','上下',-120,120]];
-function buildAdj(){
-  const box = $('adjGroups');
-  ADJ_ITEMS.forEach(([k,label])=>{
-    const g = document.createElement('div'); g.className = 'adj-group';
-    g.innerHTML = `<div class="adj-head"><span>${label}</span><button class="small" data-reset="${k}">重設</button></div>` +
-      ADJ_FIELDS.map(([f,fl,mn,mx])=>`<label class="adj-row"><span>${fl}</span><input type="range" min="${mn}" max="${mx}" step="1" value="0" data-k="${k}" data-f="${f}" aria-label="${label}${fl}"><output id="o_${k}_${f}">0</output></label>`).join('');
-    box.appendChild(g);
-  });
-  box.addEventListener('input', e=>{
-    const t = e.target; if(!t.dataset || !t.dataset.k) return;
-    state.adj[t.dataset.k][t.dataset.f] = +t.value;
-    $('o_'+t.dataset.k+'_'+t.dataset.f).textContent = t.value;
-    if(!playing) render(0,true);
-  });
-  box.addEventListener('click', e=>{ const k = e.target.dataset && e.target.dataset.reset; if(k) resetAdj([k]); });
-  $('adjResetAll').addEventListener('click', ()=>resetAdj(ADJ_ITEMS.map(i=>i[0])));
-}
-function resetAdj(keys){
-  keys.forEach(k=>ADJ_FIELDS.forEach(([f])=>{
-    state.adj[k][f] = 0;
-    const el = document.querySelector(`#adjGroups input[data-k="${k}"][data-f="${f}"]`); if(el) el.value = 0;
-    $('o_'+k+'_'+f).textContent = '0';
-  }));
+const ADJ_LABEL = Object.fromEntries(ADJ_ITEMS);
+const ADJ_RANGE = Object.fromEntries(ADJ_FIELDS.map(([f,,mn,mx])=>[f,[mn,mx]]));
+let edOpen = false, edKey = 'name', edZoom = false;
+const pv = $('pv'), pctx = pv.getContext('2d');
+// 預覽範圍：全卡，或放大到下半部文字區
+const viewRect = ()=> edZoom ? {x:100, y:860, w:W-200, h:H-860} : {x:0, y:0, w:W, h:H};
+
+function setAdj(k, f, v){
+  const [mn,mx] = ADJ_RANGE[f];
+  state.adj[k][f] = clamp(Math.round(v), mn, mx);
+  syncEditor(); updateAdjSum();
   if(!playing) render(0,true);
 }
-buildAdj();
+function resetAdj(keys){
+  keys.forEach(k=>ADJ_FIELDS.forEach(([f])=>{ state.adj[k][f] = 0; }));
+  syncEditor(); updateAdjSum();
+  if(!playing) render(0,true);
+}
+function updateAdjSum(){
+  const changed = ADJ_ITEMS.filter(([k])=>ADJ_FIELDS.some(([f])=>state.adj[k][f]!==0)).map(i=>i[1]);
+  $('adjSum').textContent = changed.length ? '已調整：'+changed.join('、') : '未調整（原本位置）';
+  $('adjSum').classList.toggle('on', changed.length>0);
+}
+function syncEditor(){
+  $('edSeg').querySelectorAll('button').forEach(b=>{
+    const on = b.dataset.k===edKey; b.classList.toggle('on', on); b.setAttribute('aria-selected', on);
+  });
+  ADJ_FIELDS.forEach(([f])=>{
+    const v = state.adj[edKey][f];
+    $('ei_'+f).value = v; $('eo_'+f).textContent = v;
+  });
+  $('edReset').textContent = '重設'+ADJ_LABEL[edKey];
+  $('edZoom').textContent = edZoom ? '🔍 看全卡' : '🔍 放大文字';
+  $('edTip').textContent = state[edKey] ? '可以直接在卡上拖動文字' : '未輸入'+ADJ_LABEL[edKey]+'，先在上面填寫';
+}
+
+function buildEditor(){
+  $('edSeg').innerHTML = ADJ_ITEMS.map(([k,l])=>`<button role="tab" data-k="${k}">${l}</button>`).join('');
+  $('edRows').innerHTML = ADJ_FIELDS.map(([f,fl,mn,mx])=>
+    `<div class="ed-row"><span>${fl}</span>`+
+    `<button class="step" data-f="${f}" data-d="-1" aria-label="${fl}減少">−</button>`+
+    `<input type="range" id="ei_${f}" min="${mn}" max="${mx}" step="1" value="0" data-f="${f}" aria-label="${fl}">`+
+    `<button class="step" data-f="${f}" data-d="1" aria-label="${fl}增加">+</button>`+
+    `<output id="eo_${f}">0</output></div>`).join('');
+  $('edSeg').addEventListener('click', e=>{
+    const k = e.target.dataset && e.target.dataset.k; if(!k) return;
+    edKey = k; syncEditor(); drawPreview();
+  });
+  $('edRows').addEventListener('input', e=>{ const f = e.target.dataset && e.target.dataset.f; if(f) setAdj(edKey, f, +e.target.value); });
+  // − / ＋：按一下調 1，按住會連續調
+  let rep = null;
+  const stopRep = ()=>{ if(rep){ clearTimeout(rep.t); clearInterval(rep.i); rep = null; } };
+  const bump = b => setAdj(edKey, b.dataset.f, state.adj[edKey][b.dataset.f] + (+b.dataset.d));
+  $('edRows').addEventListener('pointerdown', e=>{
+    const b = e.target.closest('.step'); if(!b) return;
+    e.preventDefault(); stopRep(); bump(b);
+    rep = {t:setTimeout(()=>{ rep.i = setInterval(()=>bump(b), 60); }, 400)};
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>$('edRows').addEventListener(ev, stopRep));
+  $('edRows').addEventListener('click', e=>{ const b = e.target.closest('.step'); if(b && e.detail===0) bump(b); }); // 鍵盤
+  $('edReset').addEventListener('click', ()=>resetAdj([edKey]));
+  $('edResetAll').addEventListener('click', ()=>resetAdj(ADJ_ITEMS.map(i=>i[0])));
+  $('edZoom').addEventListener('click', ()=>{ edZoom = !edZoom; syncEditor(); sizePreview(); });
+  $('edDone').addEventListener('click', closeEditor);
+  $('adjOpen').addEventListener('click', openEditor);
+
+  // 在預覽上拖動：點中哪段文字就選哪段；點空位就移動目前選中的文字
+  let drag = null;
+  const toCard = e=>{ const r = pv.getBoundingClientRect(), v = viewRect(); return {x:v.x+(e.clientX-r.left)/r.width*v.w, y:v.y+(e.clientY-r.top)/r.height*v.h}; };
+  pv.addEventListener('pointerdown', e=>{
+    if(drag) return;
+    // 找最接近手指的文字（30 卡片像素內）；名字和 IG 很近，所以用距離而不是先到先得
+    const p = toCard(e);
+    let hit = null, best = 30;
+    ['name','ig','date'].forEach(k=>{
+      const b = textBounds[k]; if(!b) return;
+      const d = Math.hypot(Math.max(b.x-p.x, 0, p.x-b.x-b.w), Math.max(b.y-p.y, 0, p.y-b.y-b.h));
+      const c = Math.abs(p.y-(b.y+b.h/2))/1000; // 同時在兩個範圍內時，選中心較近的
+      if(d+c < best){ best = d+c; hit = k; }
+    });
+    if(hit && hit!==edKey){ edKey = hit; syncEditor(); }
+    if(!state[edKey]) return;
+    pv.setPointerCapture(e.pointerId);
+    drag = {id:e.pointerId, p, dx:state.adj[edKey].dx, dy:state.adj[edKey].dy};
+    pv.style.cursor = 'grabbing';
+  });
+  pv.addEventListener('pointermove', e=>{
+    if(!drag || e.pointerId!==drag.id) return;
+    const p = toCard(e), a = state.adj[edKey];
+    a.dx = clamp(Math.round(drag.dx + p.x-drag.p.x), ...ADJ_RANGE.dx);
+    a.dy = clamp(Math.round(drag.dy + p.y-drag.p.y), ...ADJ_RANGE.dy);
+    syncEditor(); render(0,true);
+  });
+  const endDrag = e=>{ if(drag && e.pointerId===drag.id){ drag = null; pv.style.cursor = ''; updateAdjSum(); } };
+  pv.addEventListener('pointerup', endDrag); pv.addEventListener('pointercancel', endDrag);
+}
+
+function sizePreview(){
+  if(!edOpen) return;
+  const box = $('edView'), v = viewRect(), aspect = v.w/v.h;
+  const aw = box.clientWidth-16, ah = box.clientHeight-16;
+  if(aw<=0 || ah<=0) return;
+  const cw = Math.min(aw, ah*aspect), ch = cw/aspect;
+  const dpr = Math.min(window.devicePixelRatio||1, 3);
+  pv.style.width = cw+'px'; pv.style.height = ch+'px';
+  pv.width = Math.round(cw*dpr); pv.height = Math.round(ch*dpr);
+  drawPreview();
+}
+function drawPreview(){
+  if(!edOpen || !pv.width) return;
+  const v = viewRect(), s = pv.width/v.w;
+  pctx.setTransform(1,0,0,1,0,0);
+  pctx.imageSmoothingEnabled = true; pctx.imageSmoothingQuality = 'high';
+  pctx.drawImage(cv, v.x, v.y, v.w, v.h, 0, 0, pv.width, pv.height);
+  // 選中的文字加虛線框（只在預覽顯示，不會出現在圖片或影片）
+  const b = textBounds[edKey]; if(!b) return;
+  const pad = 10;
+  pctx.save();
+  pctx.setTransform(s,0,0,s,-v.x*s,-v.y*s);
+  const u = Math.min(window.devicePixelRatio||1, 3)/s; // 1 個螢幕像素
+  pctx.lineWidth = 2*u;
+  pctx.setLineDash([7*u, 5*u]);
+  pctx.strokeStyle = 'rgba(0,0,0,.6)'; pctx.strokeRect(b.x-pad, b.y-pad, b.w+pad*2, b.h+pad*2);
+  pctx.lineDashOffset = 6*u; pctx.strokeStyle = '#f2d48a'; pctx.strokeRect(b.x-pad, b.y-pad, b.w+pad*2, b.h+pad*2);
+  pctx.restore();
+}
+function openEditor(){
+  if(playing) return;
+  // 預設選第一段有內容的文字
+  if(!state[edKey]) edKey = (ADJ_ITEMS.find(([k])=>state[k])||ADJ_ITEMS[0])[0];
+  edOpen = true;
+  $('editor').hidden = false;
+  document.body.style.overflow = 'hidden';
+  syncEditor();
+  render(0,true);
+  requestAnimationFrame(sizePreview);
+}
+function closeEditor(){
+  edOpen = false;
+  $('editor').hidden = true;
+  document.body.style.overflow = '';
+  render(0,true);
+}
+window.addEventListener('resize', sizePreview);
+if(window.visualViewport) visualViewport.addEventListener('resize', sizePreview);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && edOpen) closeEditor(); });
+buildEditor();
+updateAdjSum();
 
 // 相片
 $('photo').addEventListener('change', e=>{
@@ -519,7 +698,7 @@ $('play').addEventListener('click', async ()=>{
   await ensureFonts();
   setBusy(true); await playOnce(); setBusy(false); render(0,true);
 });
-function setBusy(b){ ['play','png','mp4'].forEach(id=>$(id).disabled=b); }
+function setBusy(b){ ['play','png','mp4','adjOpen'].forEach(id=>$(id).disabled=b); }
 
 // ---------- 儲存 ----------
 const status = m => $('status').textContent = m||'';
