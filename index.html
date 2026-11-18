@@ -186,32 +186,31 @@
     background:rgba(0,0,0,.65);color:#fff;font-size:16px;line-height:1;cursor:pointer}
   .wk-hi.cur>button.go{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold)}
 </style>
+<link rel="apple-touch-icon" href="calendar/icon.png"><link rel="icon" href="calendar/icon.png">
+<link rel="stylesheet" href="calendar/ui.css">
 </head>
 <body>
   <nav class="tabs" role="tablist" aria-label="分頁">
     <button role="tab" id="tabBtnPromo" data-tab="promo" class="on" aria-selected="true">限定宣傳</button>
     <button role="tab" id="tabBtnWeekly" data-tab="weekly" aria-selected="false">每週更表</button>
-  </nav>
+  <button role="tab" id="tabBtnCalendar" data-tab="calendar" aria-selected="false">📅 QG月曆</button></nav>
 
   <section class="tab" id="tab-promo" role="tabpanel" aria-labelledby="tabBtnPromo">
   <h1>Queen's Garden</h1>
-  <p class="sub">限定居民卡製作：換相片、填資料、下載圖片或影片</p>
-
-  <div class="stage" id="stage">
+<div class="promo-top">  <div class="stage" id="stage">
     <canvas id="cv" width="1012" height="1350"></canvas>
     <div class="hint" id="hint">選好相片後，可以用手指拖動或兩指縮放</div>
     <div class="rec" id="rec">● 錄影中</div>
   </div>
 
-  <div class="panel">
-    <label>1. 相片</label>
-    <label class="file">📷 選擇相片<input type="file" id="photo" accept="image/*"></label>
-    <div class="zoom">
+<div class="promo-tools"><label class="file">📷 選擇相片<input type="file" id="photo" accept="image/*"></label>
+    <details><summary>調整相片位置</summary><div class="zoom">
       <span style="font-size:13px;color:var(--muted)">縮放</span>
       <input type="range" id="zoom" min="1" max="3" step="0.01" value="1">
       <button class="small" id="reset">重設位置</button>
-    </div>
-
+    </div></details>    <button class="adj-open" id="adjOpen"><span>✏️</span><span class="t">文字微調</span><span class="go">›</span></button>
+    <div class="adj-sum" id="adjSum"></div>
+    <button class="btn full" id="play">▶ 預覽動畫</button></div></div><div class="panel promo-fields">
     <label for="name">2. 名字</label>
     <input type="text" id="name" placeholder="例如：豆漿" autocomplete="off">
 
@@ -220,8 +219,8 @@
 
     <div class="row">
       <div>
-        <label for="date">4. 日期（日/月）</label>
-        <input type="text" id="date" placeholder="例如：20/11" inputmode="numeric" autocomplete="off">
+        <label for="date">4. 日期（DDMM）</label>
+        <input type="text" id="date" placeholder="例如：2011" inputmode="numeric" autocomplete="off">
       </div>
       <div style="flex:.6">
         <label for="year">年份</label>
@@ -229,12 +228,6 @@
       </div>
     </div>
     <div class="dateout" id="dateout"></div>
-  </div>
-
-  <div class="panel">
-    <label>5. 文字微調（字體、字距、位置）</label>
-    <button class="adj-open" id="adjOpen"><span>✏️</span><span class="t">打開微調（可即時預覽）</span><span class="go">›</span></button>
-    <div class="adj-sum" id="adjSum"></div>
   </div>
 
   <div class="editor" id="editor" hidden role="dialog" aria-modal="true" aria-labelledby="edTitle">
@@ -259,7 +252,7 @@
   </div>
 
   <div class="btns">
-    <button class="btn full" id="play">▶ 預覽動畫</button>
+
     <button class="btn primary" id="png">下載圖片 PNG</button>
     <button class="btn primary" id="mp4">下載影片（5 秒）</button>
   </div>
@@ -269,6 +262,15 @@
   <p class="note">提示：影片是即時錄製的，按下後約 5 秒完成，錄影期間請不要離開這個頁面。字型是相近的網上字型，和 Canva 原版會有少少分別。</p>
   </section>
 
+  <section class="tab" id="tab-calendar" role="tabpanel" aria-labelledby="tabBtnCalendar" hidden>
+    <h1>居民召喚月曆</h1>
+    <div class="cal-controls"><label>年份<input id="cal-year" type="number" min="1000" max="9999"></label><label>月份<select id="cal-month"></select></label></div>
+    <div class="cal-poster"><canvas id="cal-preview" width="1080" height="1350" aria-label="居民召喚月曆預覽"></canvas><div id="cal-grid"></div></div>
+    <p class="sub">點選日期加入或移除皇冠</p>
+    <button id="cal-save" class="btn primary full" disabled>下載月曆 PNG</button>
+    <details class="panel"><summary>皇冠記錄備份</summary><p>皇冠只儲存在目前裝置及瀏覽器。匯入會合併活動日。</p><button id="cal-export" class="small">匯出 JSON</button><label class="file">匯入 JSON<input type="file" id="cal-import" accept=".json,application/json"></label></details>
+    <p role="status" id="cal-status"></p>
+  </section>
   <section class="tab" id="tab-weekly" role="tabpanel" aria-labelledby="tabBtnWeekly" hidden>
     <h1 class="wk-h1">Queen's Garden 每週更表</h1>
 
@@ -688,8 +690,8 @@ function parseDate(str, yearStr){
   } else if((mt = str.match(/^(\d{1,2})(\d{2})$/))){ d=+mt[1]; m=+mt[2]; }
   else return null;
   if(!y) y = parseInt(yearStr,10) || new Date().getFullYear();
-  if(m<1||m>12||d<1||d>31) return null;
-  return `${d} ${MONTHS[m-1]} ${y}`;
+  if(m<1||m>12||d<1||d>new Date(y,m,0).getDate()) return null;
+  return String(d).padStart(2,"0")+String(m).padStart(2,"0");
 }
 function updateInputs(){
   state.name = $('name').value.trim();
@@ -698,7 +700,7 @@ function updateInputs(){
   state.ig = igRaw ? '@'+igRaw : '';
   const dt = parseDate($('date').value, $('year').value);
   state.date = dt || '';
-  $('dateout').textContent = dt===null ? '看不懂這個日期，請用「日/月」，例如 20/11' : (dt ? '會顯示為：'+dt : '');
+  $('dateout').textContent = dt===null ? '看不懂這個日期，請用「DDMM」，例如 2011' : (dt ? '會顯示為：'+dt : '');
   ensureFonts().then(()=>{ if(!playing) render(0,true); });
   if(!playing) render(0,true);
 }
@@ -1000,7 +1002,7 @@ function checkReady(){
 // 下載圖片時，宣傳文案還需要 IG 和日期
 function checkPromoReady(){
   if(!state.ig){ status('請輸入 IG 帳號'); $('ig').focus(); return false; }
-  if(!state.date){ status($('date').value.trim() ? '日期格式不正確，請用「日/月」，例如 20/11' : '請輸入日期'); $('date').focus(); return false; }
+  if(!state.date){ status($('date').value.trim() ? '日期格式不正確，請用「DDMM」，例如 2011' : '請輸入日期'); $('date').focus(); return false; }
   return true;
 }
 
@@ -1820,7 +1822,7 @@ window.qgWeekly = { start, isBusy:()=>playing, render, state, DATE, resetLayout:
 
 // ================= 分頁切換 =================
 (function(){
-  const TABS = ['promo','weekly'];
+  const TABS = ['promo','weekly','calendar'];
   const btns = [...document.querySelectorAll('.tabs button')];
   function show(name, push){
     if(!TABS.includes(name)) name = 'promo';
@@ -1838,5 +1840,6 @@ window.qgWeekly = { start, isBusy:()=>playing, render, state, DATE, resetLayout:
   show((location.hash||'').slice(1), false);
 })();
 </script>
+<script src="calendar/calendar.js"></script>
 </body>
 </html>
