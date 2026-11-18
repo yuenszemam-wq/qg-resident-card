@@ -1,0 +1,40 @@
+/* Shared responsive layouts and fullscreen editors — QG 2026-11 */
+#tab-promo .promo-top,#tab-shadow .promo-top{display:flex;gap:12px;align-items:flex-start}
+#tab-promo .promo-tools,#tab-shadow .promo-tools{min-width:0;flex:1}
+#tab-shadow .stage{min-width:0}
+#tab-shadow .promo-tools{display:flex;flex-direction:column;gap:10px}
+#tab-shadow .promo-tools .adj-open,#tab-promo .promo-tools .adj-open{min-height:49px}
+#tab-shadow .promo-tools .btn,#tab-promo .promo-tools .btn{min-height:49px}
+#tab-shadow .qg-shadow-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 12px}
+#tab-shadow .qg-shadow-fields>label{min-width:0;margin:0}
+#tab-shadow .qg-shadow-fields>label:nth-child(3){grid-column:1/-1}
+#tab-shadow .qg-shadow-fields input{width:100%;min-width:0;max-width:100%;min-height:46px}
+#tab-shadow .qg-shadow-buttons{margin-top:12px}
+#tab-shadow #sh-save:not([hidden]){display:block;width:100%;margin-top:10px}
+#tab-shadow #sh-save[hidden]{display:none}
+#tab-shadow .stage{cursor:zoom-in}
+.qg-unified-editor{z-index:70!important;height:100dvh;min-height:0;padding-bottom:0}
+.qg-unified-editor .ed-head{flex-wrap:wrap;min-height:52px;flex-shrink:0;position:relative;z-index:2}
+.qg-unified-editor .ed-view{overflow:hidden;min-height:100px}
+.qg-unified-editor .ed-view canvas{max-width:none;border:1px solid var(--line);border-radius:10px;touch-action:none;transform-origin:50% 50%}
+.qg-unified-editor .ed-ctrl{max-height:43dvh;overflow-y:auto;overscroll-behavior:contain}
+.qg-unified-editor .qg-editor-group label{margin:8px 0 5px}
+.qg-unified-editor .qg-editor-group input[type=range],.qg-editor-range{width:100%;accent-color:var(--accent);display:block}
+.qg-unified-editor .qg-editor-group select{width:100%;font-size:16px;min-height:44px;border-radius:9px;background:#120c1a;color:var(--text);border:1px solid var(--line)}
+.qg-unified-editor .qg-editor-group .small{margin-top:10px}
+.qg-zoomed .ed-view{overflow:hidden}
+.qg-zoomed .ed-view canvas{transform:scale(1.65)}
+#wkEd{height:100dvh;min-height:0;z-index:70}
+#wkEd .ed-head{min-height:54px;flex-wrap:wrap;position:relative;z-index:2}
+#wkEd .ed-ctrl{max-height:46dvh;overflow-y:auto;overscroll-behavior:contain}
+#wkEd .ed-view{overflow:hidden}
+#wkEd .ed-view canvas{transform-origin:center center}
+@media(max-width:440px){
+ #tab-shadow .promo-top,#tab-promo .promo-top{gap:10px}
+ #tab-shadow .promo-tools,#tab-promo .promo-tools{gap:8px}
+ #tab-shadow .promo-tools .adj-open,#tab-promo .promo-tools .adj-open{font-size:14px;padding:10px 8px}
+ #tab-shadow .promo-tools .btn,#tab-promo .promo-tools .btn{font-size:14px;padding:11px 8px}
+ #tab-shadow .qg-shadow-fields{padding:12px;gap:8px}
+ #tab-shadow .qg-shadow-fields input{font-size:16px}
+ #wkEd .ed-head .small,#wkEd .ed-head .ed-done{font-size:13px;padding:8px 10px}
+}
