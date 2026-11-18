@@ -120,6 +120,11 @@ def verify(browser):
     expect(page.locator("#qg-last-caption-promo")).to_contain_text("幽月 @qg_test")
     expect(page.locator("#qg-progress-promo")).to_be_visible()
     expect(page.locator("#qg-progress-promo progress")).to_have_js_property("value",100)
+    print("PROMO_HISTORY_DIAG",page.evaluate("""async () => {
+      const db = await new Promise((resolve,reject)=>{const r=indexedDB.open('qg-card-history-v1',1);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+      const items = await new Promise((resolve,reject)=>{const tx=db.transaction('records','readonly'),r=tx.objectStore('records').getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+      return {status:document.querySelector("#tab-promo .qg-hist-status")?.textContent,count:document.querySelectorAll("#tab-promo .qg-hist-load").length,items:items.map(x=>({id:x.id,template:x.template})),photo:!!window.qgPromoView?.state?.photo};
+    }"""))
     expect(page.locator("#tab-promo .qg-hist-load").first).to_be_visible()
     page.locator("#tabBtnShadow").click()
     assert_two_columns("#tab-shadow", "#sh-preview")
