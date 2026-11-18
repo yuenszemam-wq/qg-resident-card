@@ -26,7 +26,7 @@ async function transaction(mode,fn){
   });
 }
 const all=()=>transaction('readonly',s=>s.getAll());
-const asBlob=(canvas,type='image/jpeg',quality=.85)=>new Promise(resolve=>canvas?.toBlob(resolve,type,quality));
+const asBlob=(canvas,type='image/jpeg',quality=.85)=>new Promise(resolve=>{if(!canvas){resolve(null);return;}canvas.toBlob(resolve,type,quality);});
 async function thumb(canvas){
   if(!canvas)return null;
   const target=document.createElement('canvas');
@@ -77,7 +77,7 @@ async function record(template,data,canvas,photo){
   if(!names[template])return;
   try{
     const entry={id:template+':'+Date.now()+':'+Math.random().toString(36).slice(2,8),template,ts:Date.now(),
-      data:structuredClone?structuredClone(data):JSON.parse(JSON.stringify(data)),
+      data:typeof structuredClone==='function'?structuredClone(data):JSON.parse(JSON.stringify(data)),
       thumb:await thumb(canvas),photo:await asBlob(photo,'image/jpeg',.9)};
     await transaction('readwrite',s=>s.put(entry));
     const entries=(await all()).filter(e=>e.template===template).sort((a,b)=>b.ts-a.ts);
