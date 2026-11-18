@@ -20,9 +20,14 @@ async function transaction(mode,fn){
   const d=await db();
   return new Promise((resolve,reject)=>{
     const tx=d.transaction(storeName,mode),store=tx.objectStore(storeName);
-    let value;const req=fn(store);
-    if(req)req.onsuccess=()=>{value=req.result};
-    tx.oncomplete=()=>resolve(value);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+    let value,requestError=null;const req=fn(store);
+    if(req){
+      req.onsuccess=()=>{value=req.result};
+      req.onerror=()=>{requestError=req.error||new Error('IDB request failed')};
+    }
+    tx.oncomplete=()=>resolve(value);
+    tx.onerror=()=>{requestError=tx.error||requestError||new Error('IDB transaction error')};
+    tx.onabort=()=>reject(tx.error||requestError||new Error('IDB transaction aborted'));
   });
 }
 const all=()=>transaction('readonly',s=>s.getAll());
