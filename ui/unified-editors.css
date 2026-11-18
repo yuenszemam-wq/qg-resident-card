@@ -1,7 +1,25 @@
 /* Shared responsive layouts and fullscreen editors — QG 2026-11 */
-#tab-promo .promo-top,#tab-shadow .promo-top{display:flex;gap:12px;align-items:flex-start}
-#tab-promo .promo-tools,#tab-shadow .promo-tools{min-width:0;flex:1}
-#tab-shadow .stage{min-width:0}
+/* Both cards must fit within the 560px page width. Never let the intrinsic
+   1012px canvas dictate the flex width or collapse the action column. */
+#tab-promo .promo-top,#tab-shadow .promo-top{
+ display:flex;gap:12px;align-items:flex-start;width:100%;min-width:0;max-width:100%;
+}
+#tab-promo .promo-top>.stage,#tab-shadow .promo-top>.stage{
+ display:block;flex:0 0 44%;width:44%;max-width:44%;min-width:0;
+}
+#tab-promo .promo-top>.stage canvas,#tab-shadow .promo-top>.stage canvas{
+ display:block;width:100%;max-width:100%;height:auto;
+}
+#tab-promo .promo-tools,#tab-shadow .promo-tools{
+ display:flex;flex-direction:column;gap:10px;
+ flex:1 1 0%;width:0;min-width:0;max-width:100%;overflow-wrap:normal;
+}
+#tab-promo .promo-tools>* ,#tab-shadow .promo-tools>*{max-width:100%;min-width:0}
+#tab-promo .promo-tools .file,#tab-shadow .promo-tools .file,
+#tab-promo .promo-tools button,#tab-shadow .promo-tools button{
+ white-space:normal;word-break:keep-all;overflow-wrap:break-word;
+}
+
 #tab-shadow .promo-tools{display:flex;flex-direction:column;gap:10px}
 #tab-shadow .promo-tools .adj-open,#tab-promo .promo-tools .adj-open{min-height:49px}
 #tab-shadow .promo-tools .btn,#tab-promo .promo-tools .btn{min-height:49px}
