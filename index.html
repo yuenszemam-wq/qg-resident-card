@@ -6,17 +6,14 @@
 <title>Queen's Garden 限定居民卡製作</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&family=Chiron+GoRound+TC:wght@900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kurenaido&family=Chiron+GoRound+TC:wght@900&display=swap" rel="stylesheet">
 <style>
   /* 本地 WOFF2（授權見 fonts/README.md） */
-  @font-face{font-family:"Dancing Script";font-style:normal;font-weight:700;font-display:swap;
-    src:url(fonts/dancing-script-latin-ext.woff2) format("woff2");
+  @font-face{font-family:"Kalam";font-style:normal;font-weight:400;font-display:swap;
+    src:url(fonts/kalam-400-latin-ext.woff2) format("woff2");
     unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
-  @font-face{font-family:"Dancing Script";font-style:normal;font-weight:700;font-display:swap;
-    src:url(fonts/dancing-script-latin.woff2) format("woff2");
-    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-  @font-face{font-family:"Satisfy";font-style:normal;font-weight:400;font-display:swap;
-    src:url(fonts/satisfy-latin.woff2) format("woff2");
+  @font-face{font-family:"Kalam";font-style:normal;font-weight:400;font-display:swap;
+    src:url(fonts/kalam-400-latin.woff2) format("woff2");
     unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
   :root{
     --bg:#16101f; --panel:#221830; --line:#3c2d52; --text:#f3ecf8; --muted:#b7a6c9;
@@ -164,14 +161,14 @@ const PHOTO_BOX = {x:202.918, y:225.705, w:606.165, h:836.331};
 const PATH_SCALE = 606.165/708.7;
 const PHOTO_PATH = new Path2D("M130.6,8.5c64.5,16.4,152.9,31.4,257.8,27.6c71.9-2.6,134.3-13.5,184.8-25.9C612.1,48,651.1,85.8,690,123.7c-11.5,120-18.2,253-16.2,397.2c1.6,118,8.9,228,19.5,329.1c-30.3,34-60.5,68.1-90.8,102.1c-10.3,4.3-20.5,8.6-30.8,13c-55.4-12-125.2-22.3-205.9-22.9c-90.3-0.6-167.5,11.1-227,24.5c-10.3-3.8-20.5-7.6-30.8-11.3c-31.3-37.3-62.7-74.6-94-111.9c18.4-143.8,28.6-308.4,21.1-489.7c-3.2-78-9.5-152.2-17.8-222.1C54.9,90.7,92.8,49.6,130.6,8.5z");
 
-// 名字：Yuji Syuku（毛筆）；缺字時用 Chiron GoRound TC，再不行用系統字
-const FONT_NAME = '"Yuji Syuku","Chiron GoRound TC","PingFang TC","Noto Sans TC","Microsoft JhengHei",serif';
-const FONT_IG = '"Dancing Script","Snell Roundhand","Apple Chancery",cursive';
-const FONT_DATE = '"Satisfy","Dancing Script","Snell Roundhand",cursive';
+// 名字：Zen Kurenaido（圓頭毛筆）＋加粗；缺字時用 Chiron GoRound TC，再不行用系統字
+const FONT_NAME = '"Zen Kurenaido","Chiron GoRound TC","PingFang TC","Noto Sans TC","Microsoft JhengHei",serif';
+// IG（Regular）及日期（Bold）：Kalam 手寫字
+const FONT_HAND = '"Kalam","Chalkboard SE","Comic Sans MS",cursive';
 const OUTLINE = '#41300a';
 const WARM_WHITE = '#fff6e6';
 // 按名字字數決定字體大小（之後仍會按 maxWidth 再縮）
-function nameFontSize(n){ return n<=2 ? 144 : n===3 ? 136 : n===4 ? 122 : 108; }
+function nameFontSize(n){ return n<=2 ? 128 : n===3 ? 122 : n===4 ? 112 : 100; }
 // 固定文字（Canva 原圖）逐字切開的位置
 const SLICES = {
   lm: [366,436.5,507,577.5,648],
@@ -263,6 +260,7 @@ function outlinedText(text, cx, cy, o){
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round'; ctx.miterLimit = 2;
   const sp = o.spacing||0;
+  const fontPx = parseFloat((o.font.match(/(\d+(?:\.\d+)?)px/)||[0,0])[1]);
   const chars = [...text];
   const widths = chars.map(c=>ctx.measureText(c).width);
   let total = widths.reduce((a,b)=>a+b,0) + sp*(chars.length-1);
@@ -276,9 +274,11 @@ function outlinedText(text, cx, cy, o){
     if(a>0){
       ctx.globalAlpha = a*(o.alpha??1);
       ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = o.stroke*0.6; ctx.shadowOffsetY = o.stroke*0.25;
-      ctx.strokeStyle = OUTLINE; ctx.lineWidth = o.stroke;
+      ctx.strokeStyle = OUTLINE; ctx.lineWidth = o.stroke + (o.bold ? o.bold*fontPx : 0);
       ctx.strokeText(c, x, oy);
       ctx.shadowColor = 'transparent';
+      // 加粗：用字身顏色再描一次邊，令筆畫更粗（size 為字體大小）
+      if(o.bold){ ctx.strokeStyle = o.fill; ctx.lineWidth = o.bold*fontPx; ctx.strokeText(c, x, oy); }
       ctx.fillStyle = o.fill;
       ctx.fillText(c, x, oy);
     }
@@ -329,19 +329,19 @@ function render(t, final=false){
     ctx.save();
     const s = nm>0 ? 0.85+0.15*easeBack(nm) : 0.85;
     ctx.translate(W/2, 1009 + bob(0.9)); ctx.scale(s,s); ctx.translate(-W/2,-1009);
-    outlinedText(state.name, W/2, 1009, {font:nameFontSize([...state.name].length)+'px '+FONT_NAME, fill:WARM_WHITE, stroke:36, alpha:easeOut(nm), maxWidth:760});
+    outlinedText(state.name, W/2, 1009, {font:nameFontSize([...state.name].length)+'px '+FONT_NAME, fill:WARM_WHITE, stroke:30, bold:0.065, alpha:easeOut(nm), maxWidth:760});
     ctx.restore();
   }
 
   // IG
   const ig = easeOut(prog(t,0.9,0.3));
-  outlinedText(state.ig, W/2, 1100 + 10*(1-ig) + bob(1.8), {font:'700 58px '+FONT_IG, fill:WARM_WHITE, stroke:16, alpha:ig, maxWidth:820});
+  outlinedText(state.ig, W/2, 1100 + 10*(1-ig) + bob(1.8), {font:'400 54px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.02, alpha:ig, maxWidth:820});
 
   // Queen's Garden（逐字）
   drawSliced('qg', bob(2.7), typeA(1.0,0.08), typeY(1.0,0.08,24));
 
   // 日期（逐字）
-  outlinedText(state.date, W/2, 1270 + bob(3.6), {font:'64px '+FONT_DATE, fill:WARM_WHITE, stroke:16, spacing:1.5, maxWidth:700,
+  outlinedText(state.date, W/2, 1270 + bob(3.6), {font:'400 58px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.03, spacing:1, maxWidth:700,
     charAlpha:typeA(1.25,0.1), charDy:typeY(1.25,0.1,24)});
 }
 
@@ -382,10 +382,10 @@ function ensureFonts(){
   if(k===fontKey) return fontPromise;
   fontKey = k;
   const loads = Promise.all([
-    document.fonts.load('120px "Yuji Syuku"', state.name+'請選擇相片'),
+    document.fonts.load('120px "Zen Kurenaido"', state.name+'請選擇相片'),
     document.fonts.load('900 120px "Chiron GoRound TC"', state.name+'請選擇相片'),
-    document.fonts.load('700 58px "Dancing Script"', state.ig+'@'),
-    document.fonts.load('64px "Satisfy"', state.date+'0123456789'),
+    document.fonts.load('400 54px "Kalam"', state.ig+'@'),
+    document.fonts.load('400 58px "Kalam"', state.date+'0123456789'),
   ]).catch(()=>{});
   // 網絡太慢時最多等 6 秒，之後用後備字體，不會卡住下載
   fontPromise = Promise.race([loads, new Promise(r=>setTimeout(r,6000))]);

@@ -15,7 +15,7 @@
 ## 備註
 
 - 「限定居民」和「Queen's Garden」用的是 Canva 原圖。
-- 名字用 Yuji Syuku 毛筆字體（Google Fonts，SIL OFL），缺字時退回 Chiron GoRound TC。Ma Shan Zheng 等簡體毛筆字缺「漿」「鈴」等繁體字，所以沒有採用。
-- IG 用 Dancing Script Bold、日期用 Satisfy，兩者都是 `fonts/` 內的本地 WOFF2，授權見 `fonts/README.md`。
+- 名字用 Zen Kurenaido（Google Fonts，SIL OFL）再加粗，對照 Canva 原稿選出，缺字時退回 Chiron GoRound TC。Ma Shan Zheng 等簡體毛筆字缺「漿」「鈴」等繁體字，所以沒有採用。
+- IG 和日期用 Kalam 手寫字（`fonts/` 內的本地 WOFF2，授權見 `fonts/README.md`）。
 - 沒有使用或轉發任何 Canva 字體。
 - 影片用瀏覽器內建錄影功能即時錄製：iPhone Safari 會輸出 MP4，部分瀏覽器只能輸出 WebM。
