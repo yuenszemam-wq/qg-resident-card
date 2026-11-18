@@ -210,7 +210,8 @@ const A = {"bg": {"x": 0, "y": 0, "src": "data:image/jpeg;base64,/9j/4AAQSkZJRgA
 
 const W = 1012, H = 1350;
 const cv = document.getElementById('cv');
-const ctx = cv.getContext('2d');
+const cardCtx = cv.getContext('2d');
+let ctx = cardCtx; // 畫模糊效果時會暫時換成離屏畫布
 const $ = id => document.getElementById(id);
 
 // ---------- 圖層 ----------
@@ -261,7 +262,7 @@ const state = {
 // ---------- 工具 ----------
 const clamp = (v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const easeOut = p => 1-Math.pow(1-p,3);
-const easeBack = p => { const c=1.6; return 1+(c+1)*Math.pow(p-1,3)+c*Math.pow(p-1,2); };
+const easeBack = (p,c=1.6) => { return 1+(c+1)*Math.pow(p-1,3)+c*Math.pow(p-1,2); };
 const prog = (t,start,dur)=>clamp((t-start)/dur);
 
 const blurImg = {};
@@ -342,8 +343,10 @@ function outlinedText(text, cx, cy, o){
   chars.forEach((c,i)=>{
     const a = o.charAlpha ? o.charAlpha(i) : 1;
     const oy = o.charDy ? o.charDy(i) : 0;
-    if(a>0){
-      ctx.globalAlpha = a*(o.alpha??1);
+    const ga = a*(o.alpha??1);
+    // 完全透明就不畫：iOS Safari 遇到 globalAlpha=0 會照樣畫出描邊（片頭出現啡色色塊）
+    if(ga>0.003){
+      ctx.globalAlpha = ga;
       ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = o.stroke*0.6; ctx.shadowOffsetY = o.stroke*0.25;
       ctx.strokeStyle = OUTLINE; ctx.lineWidth = o.stroke + (o.bold ? o.bold*fontPx : 0);
       ctx.strokeText(c, x, oy);
@@ -355,6 +358,31 @@ function outlinedText(text, cx, cy, o){
     }
     x += widths[i] + sp;
   });
+  ctx.restore();
+}
+
+// ---------- 模糊淡入（整組圖層一齊模糊、縮放，跟 Canva 一樣邊緣都會模糊） ----------
+const mkCanvas = (w,h)=>{ const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const fx = mkCanvas(W,H), fxc = fx.getContext('2d');
+const fxM = mkCanvas(Math.round(W/4), Math.round(H/4)), fxMc = fxM.getContext('2d');
+const fxS = mkCanvas(Math.round(W/22), Math.round(H/22)), fxSc = fxS.getContext('2d');
+function drawFx(fn, alpha, blur, scale, cx, cy){
+  if(alpha<=0.003) return;
+  if(alpha>=1 && blur<=0.003 && scale===1){ fn(); return; }
+  const main = ctx;
+  ctx = fxc;
+  ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha = 1; ctx.clearRect(0,0,W,H);
+  try{ fn(); } finally { ctx = main; }
+  ctx.save();
+  ctx.translate(cx,cy); ctx.scale(scale,scale); ctx.translate(-cx,-cy);
+  ctx.imageSmoothingEnabled = true;
+  if(blur>0.003){
+    fxMc.clearRect(0,0,fxM.width,fxM.height); fxMc.drawImage(fx,0,0,fxM.width,fxM.height);
+    fxSc.clearRect(0,0,fxS.width,fxS.height); fxSc.drawImage(fxM,0,0,fxS.width,fxS.height);
+    ctx.globalAlpha = alpha*Math.min(1, blur*2);
+    ctx.drawImage(fxS,0,0,W,H);
+  }
+  if(blur<1){ ctx.globalAlpha = alpha*(1-blur); ctx.drawImage(fx,0,0); }
   ctx.restore();
 }
 
@@ -371,57 +399,61 @@ function renderCard(t, final){
   // 圓形蕾絲：一直順時針慢慢轉（約每秒 18 度）
   drawLayer('lace', 1, {rot: final ? 0 : t*18*Math.PI/180});
 
-  // 相片＋珍珠框：模糊淡入
-  const pp = easeOut(prog(t,0.4,0.45));
-  drawPhoto(pp, 1-pp, 1.05-0.05*pp);
-  drawLayer('pearl', pp, {blur:1-pp, scale:0.97+0.03*pp});
+  // 時間軸對照 Canva 原片：0 秒只有背景和蕾絲，沒有任何文字
+  // 浮動
+  const fl = final ? 0 : easeOut(prog(t,2.4,0.6));
+  const bob = ph => final ? 0 : Math.sin(t*2*Math.PI/2.4 + ph)*5*fl;
+  // 逐字出現：dur = 淡入時間，h = 位移（正數 = 由上跌下，負數 = 由下升上）
+  const typeA = (st,gap,dur=0.2)=> i=>easeOut(prog(t,st+i*gap,dur));
+  const typeY = (st,gap,h,dur=0.3)=> i=>-h*(1-easeOut(prog(t,st+i*gap,dur)));
 
-  // 蝴蝶結：模糊淡入
-  const bw = easeOut(prog(t,0.15,0.5));
-  drawLayer('bow', bw, {blur:1-bw, scale:0.9+0.1*bw});
-  // 皇冠
-  const cr = easeOut(prog(t,0.35,0.45));
-  drawLayer('crown', cr, {blur:1-cr, dy:-16*(1-cr)});
+  // 相片：0.5 秒起由細變大、由模糊變清（整個相框形狀一齊模糊）
+  const pt = prog(t,0.5,0.4), pg = easeOut(pt), pb = 1-pt*pt; // pb：模糊程度，前段保持很模糊，0.8 秒後才轉清
+  const pcx = PHOTO_BOX.x+PHOTO_BOX.w/2, pcy = PHOTO_BOX.y+PHOTO_BOX.h/2;
+  drawFx(()=>drawPhoto(1,0,1), clamp(pt*3), pb, 0.86+0.14*pg, pcx, pcy);
+  // 珍珠框：相片差不多清晰時才出現
+  const pe = easeOut(prog(t,0.78,0.15));
+  drawLayer('pearl', pe, {blur:0.6*(1-pe), scale:0.97+0.03*pe});
+
+  // 蝴蝶結：模糊淡入，由左上角輕輕移入
+  const bw = easeOut(prog(t,0.25,0.35));
+  drawLayer('bow', bw, {blur:1-bw, scale:0.9+0.1*bw, dx:-18*(1-bw), dy:-18*(1-bw)});
+  // 皇冠：0.45 秒很快出現
+  const cr = easeOut(prog(t,0.45,0.12));
+  drawLayer('crown', cr, {dy:-10*(1-cr)});
 
   // 鑰匙：由兩邊滑入
   const ky = easeOut(prog(t,0.9,0.5));
   drawLayer('keyR', ky, {dx: 120*(1-ky)});
   drawLayer('keyL', ky, {dx: -120*(1-ky)});
 
-  // 浮動
-  const fl = final ? 0 : easeOut(prog(t,2.4,0.6));
-  const bob = ph => final ? 0 : Math.sin(t*2*Math.PI/2.4 + ph)*5*fl;
-  // 逐字由上方跌下
-  const typeA = (st,gap)=> i=>easeOut(prog(t,st+i*gap,0.2));
-  const typeY = (st,gap,h)=> i=>-h*(1-easeOut(prog(t,st+i*gap,0.3)));
+  // 限定居民（逐字，每字 0.1 秒）
+  drawSliced('lm', bob(0), typeA(0.5,0.1,0.12), typeY(0.5,0.1,16,0.2));
 
-  // 限定居民（逐字）
-  drawSliced('lm', bob(0), typeA(0.5,0.08), typeY(0.5,0.08,16));
-
-  // 名字：淡入放大
-  const nm = prog(t,0.7,0.4);
+  // 名字：跟相片同一時間、同一方式由模糊變清
   delete textBounds.name;
   if(state.name){
-    ctx.save();
-    const s = nm>0 ? 0.85+0.15*easeBack(nm) : 0.85;
     const an = state.adj.name, nx = W/2 + an.dx, ny = 1009 + an.dy;
-    ctx.translate(nx, ny + bob(0.9)); ctx.scale(s,s); ctx.translate(-nx,-ny);
-    outlinedText(state.name, nx, ny, {key:'name', font:nameFontSize([...state.name].length)+'px '+FONT_NAME, fill:WARM_WHITE, stroke:30, bold:0.065, spacing:an.sp, alpha:easeOut(nm), maxWidth:760});
-    ctx.restore();
+    drawFx(()=>{
+      ctx.save(); ctx.translate(0, bob(0.9));
+      outlinedText(state.name, nx, ny, {key:'name', font:nameFontSize([...state.name].length)+'px '+FONT_NAME, fill:WARM_WHITE, stroke:30, bold:0.065, spacing:an.sp, maxWidth:760});
+      ctx.restore();
+    }, clamp(pt*3), pb, 0.86+0.14*pg, pcx, pcy);
   }
 
-  // IG
-  const ig = easeOut(prog(t,0.9,0.3));
+  // IG：0.85 秒很快淡入
+  const ig = easeOut(prog(t,0.85,0.15));
   const ai = state.adj.ig;
-  outlinedText(state.ig, W/2 + ai.dx, 1100 + ai.dy + 10*(1-ig) + bob(1.8), {key:'ig', font:'400 54px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.02, spacing:ai.sp, alpha:ig, maxWidth:820});
+  outlinedText(state.ig, W/2 + ai.dx, 1100 + ai.dy + 6*(1-ig) + bob(1.8), {key:'ig', font:'400 54px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.02, spacing:ai.sp, alpha:ig, maxWidth:820});
 
-  // Queen's Garden（逐字）
-  drawSliced('qg', bob(2.7), typeA(1.0,0.08), typeY(1.0,0.08,24));
+  // Queen's Garden（逐字由上方輕輕跌下，1.0 秒起，每字約 0.075 秒）
+  drawSliced('qg', bob(2.7), typeA(1.0,0.075,0.06), typeY(1.0,0.075,20,0.15));
 
-  // 日期（逐字）
+  // 日期（逐字由下方彈上來，稍為衝過頭再回位，1.25 秒起）
   const ad = state.adj.date;
+  const dateY = i=>{ const p = prog(t,1.25+i*0.11,0.35); return p>=1 ? 0 : 80*(1-easeBack(p,3)); };
   outlinedText(state.date, W/2 + ad.dx, 1270 + ad.dy + bob(3.6), {key:'date', font:'400 58px '+FONT_HAND, fill:WARM_WHITE, stroke:15, bold:0.03, spacing:1 + ad.sp, maxWidth:700,
-    charAlpha:typeA(1.25,0.1), charDy:typeY(1.25,0.1,24)});
+    charAlpha:typeA(1.25,0.11,0.08), charDy:dateY});
 }
 
 // ---------- 輸入 ----------
