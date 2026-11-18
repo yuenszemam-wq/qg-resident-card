@@ -4,6 +4,10 @@ on:
     paths:
       - 'index.html'
       - 'calendar/**'
+      - 'ui/**'
+      - 'shadow/**'
+      - 'weekly/**'
+      - 'video/**'
       - '.github/tests/test_qg_calendar.py'
       - '.github/workflows/calendar.yml'
 permissions:

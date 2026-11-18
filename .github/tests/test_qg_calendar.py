@@ -79,9 +79,9 @@ def verify(browser):
     # Guard against the iPhone UI regression: a full-width canvas previously
     # squeezed the upload/edit buttons into a vertical sliver.
     def assert_two_columns(tab, canvas_id):
-        box = page.locator(f"{tab} .promo-top").bounding_box()
-        image = page.locator(f"{tab} .stage").bounding_box()
-        actions = page.locator(f"{tab} .promo-tools").bounding_box()
+        box = page.locator(f"{tab} .wk-top").bounding_box()
+        image = page.locator(f"{tab} .wk-thumb").bounding_box()
+        actions = page.locator(f"{tab} .wk-side").bounding_box()
         assert box and image and actions, f"Missing card controls: {tab}"
         assert image["width"] >= 120 and actions["width"] >= 135, (
             f"Card controls collapsed: {tab}, image={image}, actions={actions}"
@@ -91,6 +91,17 @@ def verify(browser):
         )
         assert actions["x"] + actions["width"] <= box["x"] + box["width"] + 2
         assert page.locator(canvas_id).is_visible()
+    def assert_editor(tab, ed, opener):
+        # Every tab uses the same weekly-style editor: play / done / exit, photo + text panes.
+        page.locator(opener).click()
+        expect(page.locator(ed)).to_be_visible()
+        for suffix in ["Play", "Done", "Exit", "ResetPos"]:
+            expect(page.locator(ed + suffix)).to_have_count(1)
+        expect(page.locator(f"{ed} [data-m=photo]")).to_be_visible()
+        page.locator(f"{ed} [data-m=text]").click()
+        expect(page.locator(ed + "Font")).to_be_visible()
+        page.locator(ed + "Exit").click()
+        expect(page.locator(ed)).to_be_hidden()
     assert_two_columns("#tab-promo", "#cv")
     page.locator("#photo").set_input_files(ROOT / "calendar/icon.png")
     page.locator("#name").fill("幽月")
@@ -98,53 +109,30 @@ def verify(browser):
     page.locator("#date").fill("2026-11-20")
     expect(page.locator("#dateout")).to_contain_text("2011")
     assert page.locator("#png").bounding_box()["y"] < 844
+    # Preview playback must not lock other actions.
+    page.locator("#play").click()
+    expect(page.locator("#name")).to_be_enabled()
+    expect(page.locator("#png")).to_be_enabled()
     with page.expect_download():
         page.locator("#png").click()
     expect(page.locator("#promoText")).to_contain_text("幽月 @qg_test")
     expect(page.locator("#promoText")).to_contain_text("降臨日期｜20 Nov 2026")
     page.locator("#promoClose").click()
-    # New mobile editor UX: all modal editors have explicit exits, without losing data.
     expect(page.locator("#tab-promo h1")).to_have_text("限定居民宣傳")
-    expect(page.locator("#promoPhotoExpand")).to_have_count(0)
-    page.locator("#stage").click()
-    expect(page.locator("#promoPhotoEditor")).to_be_visible()
-    expect(page.locator("#promoPhotoEditor .qg-editor-play")).to_be_visible()
-    expect(page.locator("#promoPhotoEditor .qg-photo-actions button")).to_have_count(2)
-    page.locator("#promoPhotoEditor .qg-editor-done").click()
-    expect(page.locator("#promoPhotoEditor")).to_be_hidden()
-    page.locator("#adjOpen").click()
-    expect(page.locator("#edZoom")).to_be_hidden()
-    expect(page.locator("#promoEditorPlay")).to_be_visible()
-    page.locator("#edDone").click()
+    assert_editor("#tab-promo", "#promoEd", "#stage")
+    assert_editor("#tab-promo", "#promoEd", "#adjOpen")
     expect(page.locator("#qg-last-caption-promo")).to_be_visible()
     expect(page.locator("#qg-last-caption-promo")).to_contain_text("幽月 @qg_test")
     expect(page.locator("#qg-progress-promo")).to_be_visible()
     expect(page.locator("#qg-progress-promo progress")).to_have_js_property("value",100)
-    print("PROMO_HISTORY_DIAG",page.evaluate("""async () => {
-      const db = await new Promise((resolve,reject)=>{const r=indexedDB.open('qg-card-history-v1',1);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-      const items = await new Promise((resolve,reject)=>{const tx=db.transaction('records','readonly'),r=tx.objectStore('records').getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-      return {status:document.querySelector("#tab-promo .qg-hist-status")?.textContent,count:document.querySelectorAll("#tab-promo .qg-hist-load").length,items:items.map(x=>({id:x.id,template:x.template})),photo:!!window.qgPromoView?.state?.photo};
-    }"""))
     expect(page.locator("#tab-promo .qg-hist-load").first).to_be_visible()
     page.locator("#tabBtnShadow").click()
     assert_two_columns("#tab-shadow", "#sh-preview")
-    page.locator("#shOpenText").click()
-    expect(page.locator("#shEditor")).to_be_visible()
-    expect(page.locator("#shEditorFont")).to_be_visible()
-    expect(page.locator("#shRangesp")).to_be_visible()
-    expect(page.locator("#shEditor .qg-editor-play")).to_be_visible()
-    page.locator("#shEditor .qg-editor-done").click()
-    expect(page.locator("#shEditor")).to_be_hidden()
-    page.locator("#sh-preview").click()
-    expect(page.locator("#shPhotoEditor")).to_be_visible()
-    page.locator("#shPhotoEditor .qg-editor-done").click()
+    assert_editor("#tab-shadow", "#shEd", "#shOpenText")
+    assert_editor("#tab-shadow", "#shEd", "#sh-thumb")
     page.locator("#tabBtnWeekly").click()
-    page.locator("#wkOpenText").click()
-    expect(page.locator("#wkEd")).to_be_visible()
-    expect(page.locator("#wkEdZoom")).to_be_hidden()
-    expect(page.locator("#wkEdPlay")).to_be_visible()
-    page.locator("#wkEdExit").click()
-    expect(page.locator("#wkEd")).to_be_hidden()
+    assert_two_columns("#tab-weekly", "#wkCv")
+    assert_editor("#tab-weekly", "#wkEd", "#wkOpenText")
     page.locator("#wkStart").fill("2026-12-28")
     expect(page.locator("#wkEnd")).to_have_value("2027-01-03")
     assert not errors, errors

@@ -6,7 +6,15 @@
   const adj = Object.fromEntries(['name','ig','date'].map(key => [key,{dx:0,dy:0,size:0,sp:0}]));
   const model = {adj, font:{name:'default',ig:'default',date:'default'}, photo:null, zoom:1, dx:0, dy:0};
   const layout = rememberLayout('shadow', model);
-  let images, loading, busy = false, pending, upload = 0;
+  // 字體：沿用限定宣傳的字體清單（名字 12 款、IG／日期 17 款），另加「原本字體」。舊版選項自動換成對應字體
+  const LEGACY_FONT = {zen:'zenk', hand:'kalam7', serif:'default'};
+  const fontChoices = k => k==='name' ? NAME_FONTS : HAND_FONTS;
+  for (const k of ['name','ig','date']) {
+    const id = model.font[k];
+    if (id!=='default' && !fontChoices(k).some(f=>f.id===id)) model.font[k] = LEGACY_FONT[id] && (LEGACY_FONT[id]==='default' || fontChoices(k).some(f=>f.id===LEGACY_FONT[id])) ? LEGACY_FONT[id] : 'default';
+  }
+  let images, loading, busy = false, pending, upload = 0, previewing = false, playToken = 0;
+  const bounds = {};
   const panel = document.getElementById('tab-shadow');
   function details() {
     const raw = field('date').value;
@@ -54,16 +62,24 @@
   const NAME_FONT='900 {size}px "Chiron GoRound TC","PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif';
   function chosenFont(k,size){
     const id=model.font?.[k]||'default';
-    if(id==='zen')return 'bold '+size+'px "Zen Kurenaido","PingFang TC",sans-serif';
-    if(id==='chiron')return '900 '+size+'px "Chiron GoRound TC","PingFang TC",sans-serif';
-    if(id==='hand')return 'bold '+size+'px '+FONT_HAND;
-    if(id==='serif')return 'bold '+size+'px Georgia,"Times New Roman",serif';
+    const f=id!=='default' && fontChoices(k).find(x=>x.id===id);
+    if(f) return k==='name' ? `${f.w} ${size}px "${f.fam}",${NAME_FALLBACK}` : `${f.w} ${size}px "${f.fam}",${FONT_HAND}`;
     return k==='name'?NAME_FONT.replace('{size}',size):'bold '+size+'px '+FONT_HAND;
   }
+  // 畫之前先載入揀咗嘅字體（最多等 6 秒）
+  function ensureFonts(s=details()) {
+    const text={name:s.name||'影',ig:s.ig||'@',date:'Date: '+(s.date||'0123456789')};
+    const loads=['name','ig','date'].map(k=>{
+      const f=fontChoices(k).find(x=>x.id===model.font?.[k]);
+      return (k==='name'&&f?loadFontCss(f.css):Promise.resolve()).then(()=>document.fonts.load(chosenFont(k,100),text[k]));
+    });
+    return Promise.race([Promise.all(loads).catch(()=>{}), new Promise(r=>setTimeout(r,6000))]);
+  }
+  const still=()=>{ if(!busy && !previewing) draw(); };
   const BANNER_PARTS=[[0,66,.55],[94,149,.67],[153,209,.8],[215,267,.93],[294,361,1.03]];
   const ease=x=>1-Math.pow(1-x,3);
   const pop=x=>x>=1?1:1+2.2*Math.pow(x-1,3)+1.2*Math.pow(x-1,2);
-  function draw(t=5, s=details()) {
+  function draw(t=5, s=details(), noBg=false) {
     if (!images) return;
     const progress = (start,duration) => Math.max(0,Math.min(1,(t-start)/duration));
     function layer(id, opacity=1, y=0, scale=1, blur=0) {
@@ -79,7 +95,8 @@
       } else ctx.drawImage(im,x0,y0+y);
       ctx.restore();
     }
-    layer(0);
+    // 影片：卡片背景由 1080×1920 全畫面背景取代（ui/video.js）
+    if (noBg) { ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height); } else layer(0);
     // 相片：連相框一齊出現，先很模糊、約 1.4 秒變清
     const shown = progress(.58,.45);
     if (model.photo && shown) {
@@ -116,6 +133,7 @@
     layer(6,qg,0,1,6*(1-qg));
     // 文字逐字彈出（白→淡紫漸變、黑色粗邊）
     function line(key,value,y,size,start,span,font,stroke) {
+      delete bounds[key];
       if (!value) return;
       const a=adj[key], chars=[...value], n=chars.length, sz=size+a.size;
       const step=Math.min(span/Math.max(1,n-1), .1);
@@ -123,6 +141,7 @@
       ctx.font=chosenFont(key,sz);
       ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.lineJoin='round';
       const total=ctx.measureText(value).width+Math.max(0,n-1)*a.sp, squeeze=Math.min(1,820/total);
+      bounds[key]={x:506+a.dx-total*squeeze/2, y:y+a.dy-sz*.6, w:total*squeeze, h:sz*1.2};
       ctx.translate(506+a.dx,y+a.dy); ctx.scale(squeeze,1);
       const grad=ctx.createLinearGradient(0,-sz*.42,0,sz*.42);
       grad.addColorStop(0,'#fcf4fc'); grad.addColorStop(1,'#d9a3e4');
@@ -156,25 +175,11 @@
       document.fonts.load(NAME_FONT.replace('{size}',120),field('name').value||'影').then(()=>{if(!busy)draw();},()=>{});
     } catch { loading=null; status('素材載入失敗，請重新整理。'); }
   }
-  function invalidate() { pending=null; field('save').hidden=true; if (!busy) draw(); }
-  function sliders(container, settings, target) {
-    const box=field(container); box.replaceChildren();
-    for (const [key,label,min,max,step] of settings) {
-      const wrap=document.createElement('label'), input=document.createElement('input');
-      wrap.textContent=label; input.type='range'; input.min=min; input.max=max;
-      input.step=step||1; input.value=target[key];
-      input.oninput=()=>{target[key]=+input.value; invalidate();};
-      wrap.append(input); box.append(wrap);
-    }
-  }
-  function crop() { sliders('crop',[['zoom','縮放',1,3,.01],['dx','左右',-100,100],['dy','上下',-100,100]],model); }
-  function adjust() { sliders('adjust',[['dx','左右',-200,200],['dy','上下',-120,120],['size','大小',-18,40]],adj[field('target').value]); }
-  function refreshControls(){ crop(); adjust(); }
-  function redraw(){if (!busy) draw(5);}
-  crop(); adjust(); field('target').onchange=adjust;
-  field('form').oninput=()=>{invalidate(); document.fonts.load(NAME_FONT.replace('{size}',120),field('name').value||'影').then(()=>{if(!busy)draw();},()=>{});};
-  field('photo').onchange=async e=>{
-    const file=e.target.files[0]; if (!file) return;
+  function invalidate() { pending=null; field('saveBox').classList.remove('on'); still(); }
+  function refreshControls(){ window.qgEditor?.sync('shadow'); }
+  function redraw(){ still(); }
+  field('form').oninput=()=>{invalidate(); ensureFonts().then(still);};
+  async function loadPhoto(file){
     const token=++upload, url=URL.createObjectURL(file);
     model.photo=null; invalidate();
     try {
@@ -182,43 +187,55 @@
       const thumb=document.createElement('canvas'), scale=Math.min(1,2000/Math.max(im.width,im.height));
       thumb.width=Math.max(1,Math.round(im.width*scale)); thumb.height=Math.max(1,Math.round(im.height*scale));
       thumb.getContext('2d').drawImage(im,0,0,thumb.width,thumb.height);
-      model.photo=thumb; layout.restorePhoto(); crop(); draw(); status('');
+      model.photo=thumb; layout.restorePhoto(); still(); status(''); refreshControls();
     } catch { status('相片讀取失敗，請重新選擇。'); }
     finally { URL.revokeObjectURL(url); }
-  };
-  function animate(s,onProgress) {
+  }
+  field('photo').onchange=e=>{ const file=e.target.files[0]; e.target.value=''; if (file) loadPhoto(file); };
+  // 預覽動畫唔會鎖住其他操作：播放期間可以繼續改字、換相、調位置；再按會重新開始；按下載會先停止預覽
+  function animate() {
+    const token=++playToken;
+    previewing=true;
     return new Promise(resolve=>{
       const begin=performance.now();
       function frame(now) {
-        const t=(now-begin)/1000; draw(t,s||details());if(onProgress)onProgress(t);
-        if (t<5) requestAnimationFrame(frame); else resolve();
+        if (token!==playToken) { resolve(false); return; }
+        const t=(now-begin)/1000; draw(Math.min(t,5),details());
+        if (t<5) requestAnimationFrame(frame); else { previewing=false; resolve(true); }
       }
       requestAnimationFrame(frame);
     });
   }
+  function stopPreview(){ if (previewing) { playToken++; previewing=false; } }
+  async function preview(){
+    if (busy) return;
+    await start(); if (!images) return;
+    await ensureFonts();
+    if (await animate()) draw();
+  }
   function lock(value) {
     busy=value;
     // Only disable export actions while encoding; keep fields and photo controls responsive.
-    ['png','video','save'].forEach(id=>{const el=field(id);if(el)el.disabled=value;});
+    ['png','video','save','play'].forEach(id=>{const el=field(id);if(el)el.disabled=value;});
   }
   async function run(mode) {
     if (busy) return;
     const s=details();
-    if (mode!=='play' && (!model.photo || !s.name || !s.ig || !s.date)) {status('請先選擇相片，並填寫名字、IG 和日期。');return;}
-    if(mode!=='play'){
-      lock(true);window.qgWorkflow?.progress('shadow',3,'準備匯出');
-    }
-    let stream, recorder;
+    if (!model.photo || !s.name || !s.ig || !s.date) {status('請先選擇相片，並填寫名字、IG 和日期。');return;}
+    stopPreview();
+    lock(true);window.qgWorkflow?.progress('shadow',3,'準備匯出');
+    const rec=()=>window.qgWorkflow?.record('shadow',{name:field('name').value,ig:field('ig').value,date:field('date').value,zoom:model.zoom,dx:model.dx,dy:model.dy,adj:model.adj,font:model.font},canvas,model.photo);
     try {
-      await start(); if (!images) return;
-      await Promise.all([document.fonts.load(NAME_FONT.replace('{size}',120),s.name||'影'),document.fonts.load('bold 50px '+FONT_HAND,'Date '+s.ig)]);
+      await start(); if (!images) throw Error('素材載入失敗，請重新整理。');
+      await Promise.all([document.fonts.load(NAME_FONT.replace('{size}',120),s.name||'影'),document.fonts.load('bold 50px '+FONT_HAND,'Date '+s.ig),ensureFonts(s)]);
       const filename='影子精靈_'+s.name.replace(/[^\p{L}\p{N}_.-]/gu,'_');
-      if (mode==='play') { await animate(); return; }
       if (mode==='png') {
         draw(5,s);
+        window.qgWorkflow?.progress('shadow',50,'正在編碼 PNG');
         const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+        if (!blob) throw Error('圖片生成失敗，請再試一次。');
         window.qgWorkflow?.progress('shadow',75,'儲存本機記錄');
-        await window.qgWorkflow?.record('shadow',{name:field('name').value,ig:field('ig').value,date:field('date').value,zoom:model.zoom,dx:model.dx,dy:model.dy,adj:model.adj,font:model.font},canvas,model.photo);
+        await rec();
         window.qgWorkflow?.progress('shadow',85,'準備儲存圖片');
         if (await saveBlob(blob,filename+'.png',status)){
           window.qgWorkflow?.finish('shadow',true,'圖片已準備好');
@@ -226,28 +243,23 @@
         }else window.qgWorkflow?.fail('shadow','已取消下載');
         return;
       }
-      const mime=pickMime();
-      if (mime===null || !canvas.captureStream) throw Error('這個瀏覽器不支援錄影。');
-      pending=null; field('save').hidden=true;
-      draw(0,s); stream=canvas.captureStream(30);
-      recorder=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:8000000}:undefined);
-      const chunks=[]; recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-      const finished=new Promise((resolve,reject)=>{recorder.onstop=resolve; recorder.onerror=()=>reject(Error('錄影中斷，請再試一次。'));});
-      recorder.start(); status('錄影中…約 5 秒');
-      await Promise.all([animate(s,t=>window.qgWorkflow?.progress('shadow',Math.min(90,Math.round(5+85*t/5)),'正在錄製影片')).then(()=>{if(recorder.state==='recording')recorder.stop();}),finished]);
-      const type=recorder.mimeType || chunks[0]?.type;
-      if (!chunks.length || !type) throw Error('影片未能產生，請再試一次。');
-      const ext=type.includes('mp4')?'mp4':'webm';
-      pending={blob:new Blob(chunks,{type:type.split(';')[0]}),filename:filename+'.'+ext,s};
-      await window.qgWorkflow?.record('shadow',{name:field('name').value,ig:field('ig').value,date:field('date').value,zoom:model.zoom,dx:model.dx,dy:model.dy,adj:model.adj,font:model.font},canvas,model.photo);
-      field('save').hidden=false; status('影片已準備好（'+ext.toUpperCase()+'）');
+      pending=null; field('saveBox').classList.remove('on');
+      field('rec').classList.add('on'); status('錄影中…約 5 秒');
+      const out=await window.qgVideo.record({
+        bg:'video/shadow-bg.jpg', card:canvas, cardBg:images[0], duration:5, hold:0,
+        frame:t=>draw(t,s,true),
+        progress:p=>window.qgWorkflow?.progress('shadow',Math.min(90,Math.round(5+85*p)),'正在錄製影片'),
+      });
+      pending={blob:out.blob,filename:filename+'.'+out.ext,s};
+      window.qgWorkflow?.progress('shadow',92,'儲存本機記錄');
+      await rec();
+      field('saveBox').classList.add('on'); status('錄好了！按下面的按鈕儲存' + (out.ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
       window.qgWorkflow?.progress('shadow',95,'影片已錄好，請儲存');
-    } catch(err) { status(err.message || '匯出失敗，請再試一次。');if(mode!=='play')window.qgWorkflow?.fail('shadow','匯出失敗'); }
-    finally { stream?.getTracks().forEach(track=>track.stop()); if(mode!=='play')lock(false); draw(); }
+    } catch(err) { status(err.message || '匯出失敗，請再試一次。');window.qgWorkflow?.fail('shadow','匯出失敗'); }
+    finally { field('rec').classList.remove('on'); lock(false); draw(); }
   }
-  field('play').onclick=()=>run('play');
+  field('play').onclick=preview;
   field('png').onclick=()=>run('png');
-  field('form').onsubmit=e=>{e.preventDefault();run('video');};
   field('video').onclick=()=>run('video');
   field('save').onclick=async()=>{
     const v=pending;
@@ -257,5 +269,41 @@
     }else window.qgWorkflow?.fail('shadow','已取消儲存');
   };
   window.qgShadow={start,draw,busy:()=>busy,model,redraw,refreshControls,saveLayout:layout.save};
+  // 共用「預覽及調整」編輯器（ui/editor.js）
+  const PHOTO_W=602, PHOTO_H=746;
+  const FIELDS=[['size','大小',-18,40],['sp','字距',-20,60],['dx','左右',-200,200],['dy','上下',-120,120]];
+  const RANGE=Object.fromEntries(FIELDS.map(([f,,a,b])=>[f,[a,b]]));
+  const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const ITEMS=[['name','名字'],['ig','IG'],['date','日期']];
+  window.qgCards=window.qgCards||{};
+  window.qgCards.shadow={
+    key:'shadow', id:'shEd', panel, canvas, thumb:field('thumb'),
+    openPhoto:document.getElementById('shOpenPhoto'), openText:document.getElementById('shOpenText'), summary:document.getElementById('shSum'),
+    still, play:preview, playing:()=>previewing, busy:()=>busy, save:()=>layout.save(),
+    photo:{
+      has:()=>!!model.photo, zoom:()=>model.zoom,
+      setZoom(z){ model.zoom=clampN(z,1,3); },
+      // model.dx/dy 以 ±100 表示相片可移動範圍
+      pan(x,y){
+        const p=model.photo; if (!p) return;
+        const sc=Math.max(PHOTO_W/p.width,PHOTO_H/p.height)*model.zoom, ox=p.width*sc-PHOTO_W, oy=p.height*sc-PHOTO_H;
+        if (ox>0.01) model.dx=clampN(model.dx+x*200/ox,-100,100);
+        if (oy>0.01) model.dy=clampN(model.dy+y*200/oy,-100,100);
+      },
+      reset(){ model.zoom=1; model.dx=0; model.dy=0; },
+      load:loadPhoto,
+    },
+    text:{
+      items:ITEMS, fields:FIELDS,
+      fonts:k=>[{id:'default',label:'原本字體（預設）'},...fontChoices(k).map(f=>({id:f.id,label:f.label.replace('（預設）','')}))],
+      font:k=>model.font[k]||'default',
+      setFont(k,id){ model.font[k]=id; ensureFonts().then(still); },
+      get:(k,f)=>adj[k][f],
+      set(k,f,v){ adj[k][f]=clampN(Math.round(v),...RANGE[f]); },
+      reset(keys){ for (const k of keys){ for (const [f] of FIELDS) adj[k][f]=0; model.font[k]='default'; } ensureFonts().then(still); },
+      has:k=>!!details()[k], bounds:k=>bounds[k],
+      changed:()=>ITEMS.some(([k])=>FIELDS.some(([f])=>adj[k][f]!==0) || (model.font[k]||'default')!=='default'),
+    },
+  };
   if(!panel.hidden) start();
 })();
