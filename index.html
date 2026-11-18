@@ -933,7 +933,7 @@ function clampPos(){
 }
 
 // 給共用放大照片編輯器使用：沿用此頁既有位置與縮放數據
-window.qgPromoView = {state, render, clampPos, box:PHOTO_BOX, canvas:cv, busy:()=>playing};
+window.qgPromoView = {state, render, clampPos, box:PHOTO_BOX, canvas:cv, busy:()=>promoExporting};
 
 // 拖動 / 兩指縮放
 const pts = new Map(); let pinch = null;
@@ -981,7 +981,8 @@ $('play').addEventListener('click', async ()=>{
   await ensureFonts();
   await playOnce(); render(0,true);
 });
-function setBusy(b){ ['png','mp4','saveVid'].forEach(id=>$(id).disabled=b); }
+let promoExporting=false;
+function setBusy(b){ promoExporting=b; ['play','png','mp4','saveVid'].forEach(id=>$(id).disabled=b); }
 
 // ---------- 儲存 ----------
 const status = m => $('status').textContent = m||'';
@@ -1025,7 +1026,8 @@ function checkPromoReady(){
 }
 
 $('png').addEventListener('click', async ()=>{
-  if(playing || !checkReady() || !checkPromoReady()) return;
+  if(!checkReady() || !checkPromoReady())return;
+  if(playing){status('動畫預覽中，結束後可再次下載');return;}
   // 圖片和文案用同一份資料快照
   const snap = {name:state.name, ig:state.ig, date:state.displayDate || state.date};
   setBusy(true); window.qgWorkflow?.progress('promo',4,'生成圖片中');
@@ -1126,7 +1128,8 @@ function pickMime(){
   return list.find(m=>{ try{ return MediaRecorder.isTypeSupported(m); }catch(e){ return false; } }) || '';
 }
 $('mp4').addEventListener('click', async ()=>{
-  if(!checkReady() || playing) return;
+  if(!checkReady())return;
+  if(playing){status('動畫預覽中，結束後可再次下載');return;}
   const mime = pickMime();
   if(mime===null || !cv.captureStream){ status('這個瀏覽器不支援錄影，請改用 iPhone Safari 或電腦版 Chrome'); return; }
   await ensureFonts();
@@ -1576,7 +1579,6 @@ function syncEd(){
   syncZoom();
 }
 function openEd(mode){
-  if(playing) return;
   edMode = mode; edOpen = true;
   $('wkEd').hidden = false;
   document.body.style.overflow = 'hidden';
@@ -1584,7 +1586,6 @@ function openEd(mode){
   requestAnimationFrame(()=>{ sizePreview(); still(); });
 }
 function closeEd(){
-  if(playing) return;
   edOpen = false;
   $('wkEd').hidden = true;
   document.body.style.overflow = '';
@@ -1641,7 +1642,6 @@ $('wkResetText').addEventListener('click', ()=>{
   const pts = new Map(); let pinch = null, drag = null;
   const k = ()=> W/pv.getBoundingClientRect().width;
   pv.addEventListener('pointerdown', e=>{
-    if(playing) return;
     if(edMode==='photo' && !state.photo) return;
     if(edMode==='text' && !state.text) return;
     pv.setPointerCapture(e.pointerId);
@@ -1696,8 +1696,10 @@ function playOnce(onFrame){
     requestAnimationFrame(step);
   });
 }
+let weeklyExporting=false;
 const BUSY_IDS = ['wkPlay','wkPng','wkMp4','wkPrev','wkNext','wkStart','wkEnd','wkPhoto','wkPhoto2','wkThumb','wkOpenPhoto','wkOpenText','wkEdPlay','wkEdDone'];
 function setBusy(b){
+  weeklyExporting=b;
   BUSY_IDS.forEach(id=>$(id).disabled=b);
   $('wkHist').querySelectorAll('button').forEach(x=>x.disabled=b);
 }
@@ -1721,7 +1723,8 @@ async function preview(){
 $('wkPlay').addEventListener('click', preview);
 $('wkEdPlay').addEventListener('click', preview);
 $('wkPng').addEventListener('click', async ()=>{
-  if(playing || !ready()) return;
+  if(!ready())return;
+  if(playing){say('動畫預覽中，結束後再按下載');return;}
   setBusy(true); window.qgWorkflow?.progress('weekly',5,'正在生成更表圖片');
   let ok = false;
   try{
@@ -1738,7 +1741,8 @@ $('wkPng').addEventListener('click', async ()=>{
 
 let pendingVideo = null;
 $('wkMp4').addEventListener('click', async ()=>{
-  if(playing || !ready()) return;
+  if(!ready())return;
+  if(playing){say('動畫預覽中，結束後再按下載');return;}
   const mime = pickMime();
   if(mime===null || !cv.captureStream){ say('這個瀏覽器不支援錄影，請改用 iPhone Safari 或電腦版 Chrome'); return; }
   await ensureFont(); layout = null;
@@ -1888,7 +1892,7 @@ function start(){
     })
     .catch(()=>{ started = false; say('素材載入失敗，請重新整理頁面'); });
 }
-window.qgWeekly = { start, isBusy:()=>playing, render, state, DATE, resetLayout:()=>{ layout = null; } };
+window.qgWeekly = { start, isBusy:()=>weeklyExporting, render, state, DATE, resetLayout:()=>{ layout = null; } };
 })();
 
 // ================= 分頁切換 =================
@@ -1905,8 +1909,8 @@ window.qgWeekly = { start, isBusy:()=>playing, render, state, DATE, resetLayout:
     window.scrollTo(0,0);
   }
   btns.forEach(b=>b.addEventListener('click', ()=>{
-    // 錄影或播放中不可以轉分頁
-    if(playing || window.qgWeekly.isBusy() || window.qgShadow?.busy()) return;
+    // Only encoding/exporting blocks navigation. Preview playback does not lock other tabs.
+    if(window.qgPromoView?.busy() || window.qgWeekly.isBusy() || window.qgShadow?.busy()) return;
     show(b.dataset.tab, true);
   }));
   show((location.hash||'').slice(1), false);
