@@ -42,7 +42,7 @@ async function thumb(canvas){
   return asBlob(target,'image/jpeg',.76);
 }
 const names={promo:'限定居民宣傳',shadow:'影子精靈',calendar:'QG 月曆'};
-const ids={promo:'tab-promo',shadow:'tab-shadow',calendar:'tab-calendar'};
+const ids={promo:'tab-promo',shadow:'tab-shadow',calendar:'tab-calendar',weekly:'tab-weekly',daily:'tab-daily'};
 const containers={};
 const urls=new Map();
 function status(template,message){

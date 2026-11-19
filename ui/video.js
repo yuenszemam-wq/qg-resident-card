@@ -13,9 +13,15 @@ const cache = {};
 function loadBg(src) {
   return cache[src] ??= new Promise((resolve, reject) => {
     const im = new Image();
+    // 管理後台可替換影片背景；替換圖載入失敗時退回原圖
+    const alt = window.qgPresets?.assetUrl(src);
+    let triedAlt = !!alt;
     im.onload = () => resolve(im);
-    im.onerror = () => { delete cache[src]; reject(Error('影片背景載入失敗，請檢查網絡後再試')); };
-    im.src = src;
+    im.onerror = () => {
+      if (triedAlt) { triedAlt = false; im.src = src; return; }
+      delete cache[src]; reject(Error('影片背景載入失敗，請檢查網絡後再試'));
+    };
+    im.src = alt || src;
   });
 }
 let muxerP = null;

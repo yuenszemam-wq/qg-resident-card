@@ -99,7 +99,7 @@ async function publicApi(request, env, url, ctx) {
     const row = await publishedRow(env.DB);
     const body = row ? JSON.parse(row.body) : defaultConfig();
     return json({ version: row ? row.version_id : 0, publishedAt: row ? row.published_at : null, config: body },
-      200, { 'Cache-Control': 'public, max-age=60' });
+      200, { 'Cache-Control': 'no-cache' });
   }
   throw new HttpError(404, 'not_found', '找不到');
 }
