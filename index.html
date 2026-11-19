@@ -202,7 +202,7 @@
       <button class="wk-thumb" id="stage" type="button" aria-label="放大預覽及調整相片">
         <canvas id="cv" width="1012" height="1350"></canvas>
         <span class="zoomtag">🔍 按此放大</span>
-        <span class="rec" id="rec">● 錄影中</span>
+        <span class="rec" id="rec">● 製作中</span>
       </button>
       <div class="wk-side">
         <label class="file">📷 選擇相片<input type="file" id="photo" accept="image/*"></label>
@@ -240,7 +240,7 @@
       <button class="wk-thumb" id="sh-thumb" type="button" aria-label="放大預覽及調整相片">
         <canvas width="1012" height="1350" id="sh-preview" aria-label="影子精靈宣傳卡預覽"></canvas>
         <span class="zoomtag">🔍 按此放大</span>
-        <span class="rec" id="sh-rec">● 錄影中</span>
+        <span class="rec" id="sh-rec">● 製作中</span>
       </button>
       <div class="wk-side">
         <label class="file">📷 選擇相片<input type="file" accept="image/*" id="sh-photo"></label>
@@ -285,7 +285,7 @@
       <button class="wk-thumb" id="wkThumb" aria-label="放大預覽及調整相片">
         <canvas id="wkCv" width="1012" height="1350"></canvas>
         <span class="zoomtag">🔍 按此放大</span>
-        <span class="rec" id="wkRec">● 錄影中</span>
+        <span class="rec" id="wkRec">● 製作中</span>
       </button>
       <div class="wk-side">
         <label class="file">📷 選擇相片<input type="file" id="wkPhoto" accept="image/*"></label>
@@ -452,7 +452,7 @@ const state = {
   zoom:1, dx:0, dy:0,
   name:'', ig:'', date:'',
   // 文字微調（單位：卡片像素；0 = 原本設定）
-  adj:{ name:{sp:0,dx:0,dy:0}, ig:{sp:0,dx:0,dy:0}, date:{sp:0,dx:0,dy:0} },
+  adj:{ name:{size:0,sp:0,dx:0,dy:0}, ig:{size:0,sp:0,dx:0,dy:0}, date:{size:0,sp:0,dx:0,dy:0} },
   font:{ name:'zenk', ig:'kalam', date:'kalam' },
 };
 
@@ -630,14 +630,14 @@ function renderCard(t, final, noBg){
   if(state.name){
     const an = state.adj.name, nx = W/2 + an.dx, ny = 1009 + an.dy;
     drawFx(()=>{
-      outlinedText(state.name, nx, ny, {key:'name', font:nameFont(nameFontSize([...state.name].length)), fill:WARM_WHITE, stroke:30, bold:fontOf('name').bold, spacing:an.sp, maxWidth:760});
+      outlinedText(state.name, nx, ny, {key:'name', font:nameFont(nameFontSize([...state.name].length)+an.size), fill:WARM_WHITE, stroke:30, bold:fontOf('name').bold, spacing:an.sp, maxWidth:760});
     }, clamp(pt*3), pb, 0.86+0.14*pg, pcx, pcy);
   }
 
   // IG：0.85 秒很快淡入
   const ig = easeOut(prog(t,0.85,0.15));
   const ai = state.adj.ig;
-  outlinedText(state.ig, W/2 + ai.dx, 1100 + ai.dy + 6*(1-ig), {key:'ig', font:handFont('ig',54), fill:WARM_WHITE, stroke:15, bold:handBold('ig'), spacing:ai.sp, alpha:ig, maxWidth:820});
+  outlinedText(state.ig, W/2 + ai.dx, 1100 + ai.dy + 6*(1-ig), {key:'ig', font:handFont('ig',54+ai.size), fill:WARM_WHITE, stroke:15, bold:handBold('ig'), spacing:ai.sp, alpha:ig, maxWidth:820});
 
   // Queen's Garden（逐字由上方輕輕跌下，1.0 秒起，每字約 0.075 秒）
   drawSliced('qg', 0, typeA(1.0,0.075,0.06), typeY(1.0,0.075,20,0.15));
@@ -645,7 +645,7 @@ function renderCard(t, final, noBg){
   // 日期（逐字由下方彈上來，稍為衝過頭再回位，1.25 秒起）
   const ad = state.adj.date;
   const dateY = i=>{ const p = prog(t,1.25+i*0.11,0.35); return p>=1 ? 0 : 80*(1-easeBack(p,3)); };
-  outlinedText(state.date, W/2 + ad.dx, 1270 + ad.dy, {key:'date', font:handFont('date',58), fill:WARM_WHITE, stroke:15, bold:handBold('date'), spacing:1 + ad.sp, maxWidth:700,
+  outlinedText(state.date, W/2 + ad.dx, 1270 + ad.dy, {key:'date', font:handFont('date',58+ad.size), fill:WARM_WHITE, stroke:15, bold:handBold('date'), spacing:1 + ad.sp, maxWidth:700,
     charAlpha:typeA(1.25,0.11,0.08), charDy:dateY});
 }
 
@@ -672,8 +672,9 @@ function updateInputs(){
   const dt = parseDate($('date').value, '');
   const dateParts = $('date').value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   state.displayDate = dateParts ? (+dateParts[3])+' '+MONTHS[(+dateParts[2])-1]+' '+dateParts[1] : '';
-  state.date = dt || '';
-  $('dateout').textContent = dt===null ? '請選擇有效日期' : (dt ? '卡片會顯示：'+dt+'｜文案日期：'+state.displayDate : '');
+  // 卡片及文案都用「20 Nov 2026」格式
+  state.date = dt ? state.displayDate : '';
+  $('dateout').textContent = dt===null ? '請選擇有效日期' : (dt ? '卡片及文案會顯示：'+state.displayDate : '');
   ensureFonts().then(()=>{ if(!playing) render(0,true); });
   if(!playing) render(0,true);
 }
@@ -701,7 +702,7 @@ function ensureFonts(){
 
 // ---------- 文字微調（共用「預覽及調整」編輯器，見 ui/editor.js） ----------
 const ADJ_ITEMS = [['name','名字'],['ig','IG'],['date','日期']];
-const ADJ_FIELDS = [['sp','字距',-20,60],['dx','左右',-200,200],['dy','上下',-120,120]];
+const ADJ_FIELDS = [['size','大小',-30,40],['sp','字距',-20,60],['dx','左右',-200,200],['dy','上下',-120,120]];
 const ADJ_RANGE = Object.fromEntries(ADJ_FIELDS.map(([f,,mn,mx])=>[f,[mn,mx]]));
 const promoLayout = rememberLayout('promo', state);
 function still(){ if(!playing) render(0,true); }
@@ -920,28 +921,40 @@ $('mp4').addEventListener('click', async ()=>{
   // 影片和文案用同一份資料快照
   const snap = {name:state.name, ig:state.ig, date:state.displayDate || state.date};
   $('saveBox').classList.remove('on'); pendingVideo = null;
-  setBusy(true); $('rec').classList.add('on'); status('錄影中…約 5 秒');
-  window.qgWorkflow?.progress('promo',2,'開始錄影');
+  setBusy(true); $('rec').classList.add('on'); status('影片製作中…請稍等');
+  window.qgWorkflow?.progress('promo',2,'開始製作影片');
   playing = true;
   try{
     const out = await window.qgVideo.record({
       bg:'video/promo-bg.jpg', card:cv, cardBg:img.bg, duration:DURATION, hold:0.25,
       frame:t=>render(t,false,true),
-      progress:p=>window.qgWorkflow?.progress('promo',Math.min(90,Math.round(6+84*p)),'正在錄製影片'),
+      progress:p=>window.qgWorkflow?.progress('promo',Math.min(90,Math.round(6+84*p)),'正在製作影片'),
     });
     pendingVideo = { blob:out.blob, name:baseName()+'.'+out.ext, snap };
     playing = false; render(0,true);
-    window.qgWorkflow?.progress('promo',92,'儲存本機記錄');
+    window.qgWorkflow?.progress('promo',96,'儲存本機記錄');
     await window.qgWorkflow?.record('promo',{name:state.name,ig:state.ig,date:$('date').value,zoom:state.zoom,dx:state.dx,dy:state.dy,adj:state.adj,font:state.font},cv,state.photo);
-    window.qgWorkflow?.progress('promo',95,'影片已錄好，請按儲存');
-    status('錄好了！按下面的按鈕儲存' + (out.ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
-    $('saveBox').classList.add('on');
+    afterVideo(await window.qgVideo.autoSave(out.blob, pendingVideo.name), out.ext);
   }catch(err){
     status(err.message || '錄影失敗，請再試一次'); window.qgWorkflow?.fail('promo','錄影失敗');
   }finally{
     playing = false; $('rec').classList.remove('on'); setBusy(false); render(0,true);
   }
 });
+// 影片製作好：可以自動儲存就自動儲存；iPhone 要親手按「儲存影片」先可以存入相簿
+function afterVideo(result, ext){
+  const webm = ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : '';
+  if(result==='saved'){
+    status('影片已自動儲存：'+pendingVideo.name+webm);
+    window.qgWorkflow?.finish('promo',true,'影片已完成並儲存');
+    $('saveBox').classList.add('on');
+    if(pendingVideo.snap.ig && pendingVideo.snap.date) openPromo(pendingVideo.snap);
+  }else{
+    status('影片已製作好！按下面「儲存影片」存入相簿'+webm);
+    window.qgWorkflow?.finish('promo',true,'影片已完成，請按「儲存影片」');
+    $('saveBox').classList.add('on');
+  }
+}
 $('saveVid').addEventListener('click', async ()=>{
   if(!pendingVideo) return;
   const v = pendingVideo;
@@ -1412,8 +1425,8 @@ $('wkMp4').addEventListener('click', async ()=>{
   await ensureFont(); layout = null;
   const name = baseName();
   $('wkSaveBox').classList.remove('on'); pendingVideo = null;
-  setBusy(true); $('wkRec').classList.add('on'); say('錄影中…約 5 秒');
-  window.qgWorkflow?.progress('weekly',3,'開始錄影');
+  setBusy(true); $('wkRec').classList.add('on'); say('影片製作中…請稍等');
+  window.qgWorkflow?.progress('weekly',3,'開始製作影片');
   playing = true;
   let ok = false;
   try{
@@ -1421,11 +1434,14 @@ $('wkMp4').addEventListener('click', async ()=>{
     const out = await window.qgVideo.record({
       bg:'video/weekly-bg.jpg', card:cv, cardBg:img.bg, duration:DURATION, hold:0.08,
       frame:t=>render(t,false,true),
-      progress:p=>window.qgWorkflow?.progress('weekly',Math.min(90,Math.round(6+84*p)),'正在錄製影片'),
+      progress:p=>window.qgWorkflow?.progress('weekly',Math.min(90,Math.round(6+84*p)),'正在製作影片'),
     });
     pendingVideo = { blob:out.blob, name:name+'.'+out.ext };
-    window.qgWorkflow?.progress('weekly',95,'影片錄製完成，請儲存');
-    say('錄好了！按下面的按鈕儲存' + (out.ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
+    const webm = out.ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : '';
+    // 可以自動儲存就自動儲存；iPhone 要親手按「儲存影片」先可以存入相簿
+    const saved = await window.qgVideo.autoSave(out.blob, pendingVideo.name);
+    if(saved==='saved'){ say('影片已自動儲存：'+pendingVideo.name+webm); window.qgWorkflow?.finish('weekly',true,'影片已完成並儲存'); }
+    else { say('影片已製作好！按下面「儲存影片」存入相簿'+webm); window.qgWorkflow?.finish('weekly',true,'影片已完成，請按「儲存影片」'); }
     $('wkSaveBox').classList.add('on');
     ok = true;
   }catch(err){
