@@ -99,7 +99,8 @@ const WEEKLY_COPY = `👑 Queen’s Garden 每週更表 👑
 📍 旺角・西洋菜街 遠景大廈 3 樓 H2 室
 歡迎 DM 預約 🫶🏻`;
 
-const DAILY_COPY = `✧ 異世界居民每日出沒啟示錄 ✧
+// Phase 5 初版的每日文案預設（未啟用）；仍是這個預設的設定會自動升級為新版文案
+const LEGACY_DAILY_COPY = `✧ 異世界居民每日出沒啟示錄 ✧
 📜 {{DATE}}
 🌙 {{TIME}}
 
@@ -107,6 +108,29 @@ const DAILY_COPY = `✧ 異世界居民每日出沒啟示錄 ✧
 
 📍 旺角・西洋菜街 遠景大廈 3 樓 H2 室
 歡迎 DM 預約 🫶🏻`;
+
+// {{DATE}} = 13 / 7 𝕸𝖔𝖓；{{RESIDENT_LIST}} 按分類分組（⚜ 出沒居民、♦️ 限定居民、♣️ 影子精靈、🔰 試煉者），沒有的分類不顯示
+const DAILY_COPY = `~
+🕯️ 異世界居民每日出沒啟示錄 🕯️
+
+🗓 {{DATE}}
+⏰ {{TIME}}
+{{RESIDENT_LIST}}
+
+✦ 全新菜單已經登場 ，快來一起冒險吧！✦
+✦ 最低消費為一個日常套餐 $88 魔力✦
+✦ 出沒居民以當日實際情況為準 ✦
+
+📍 Queen’s Garden｜異世界入口
+旺角・西洋菜街 遠景大廈 3 樓 H2 室
+（歡迎 Walk-in）`;
+
+/** 把仍使用舊預設的設定升級（只改未經管理員修改的部分）。 */
+export function upgradeConfig(body) {
+  const d = body && body.copy && body.copy.daily;
+  if (d && !d.enabled && d.template === LEGACY_DAILY_COPY) body.copy.daily = { enabled: true, template: DAILY_COPY };
+  return body;
+}
 
 export function defaultConfig() {
   return {
@@ -124,7 +148,7 @@ export function defaultConfig() {
       promo: { enabled: true, template: PROMO_COPY },
       shadow: { enabled: true, template: SHADOW_COPY },
       weekly: { enabled: false, template: WEEKLY_COPY },
-      daily: { enabled: false, template: DAILY_COPY },
+      daily: { enabled: true, template: DAILY_COPY },
       calendar: { enabled: false, template: '' },
     },
     general: { openTime: '6:00pm ─ 10:00pm' },

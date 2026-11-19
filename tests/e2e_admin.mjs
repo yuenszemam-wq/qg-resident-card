@@ -59,6 +59,23 @@ await page.waitForSelector('#barMsg.ok');
 step('page preset draft → not public');
 await page.click('.nav button[data-v=pages]');
 await page.locator('#v-pages select').first().selectOption('yujis');
+
+step('live preview follows admin changes and syncs edits back');
+const lf = page.frameLocator('#v-pages iframe.live-frame');
+const lfr = () => page.frames().find(f => f.url().includes('qgPreview=live'));
+await page.waitForFunction(() => {
+  const f = document.querySelector('#v-pages iframe.live-frame');
+  return f && f.contentWindow.qgCards?.promo?.text?.font('name') === 'yujis';
+}, null, { timeout: 15000 });
+assert.equal(await lf.locator('nav.tabs').isVisible(), false, 'maker tabs hidden in live preview');
+// 在預覽中修改文字大小 → 後台數值同步
+await lfr().evaluate(() => { const T = window.qgCards.promo.text; T.set('name', 'size', 12); });
+await page.waitForFunction(() => +document.querySelector('#v-pages .block input[type=number]').value === 12, null, { timeout: 5000 });
+// 後台改數值 → 預覽即時更新
+const num = page.locator('#v-pages .block input[type=number]').first();
+await num.fill('-5'); await num.dispatchEvent('change');
+await page.waitForFunction(() => document.querySelector('#v-pages iframe.live-frame').contentWindow.qgCards.promo.text.get('name', 'size') === -5);
+await num.fill('0'); await num.dispatchEvent('change');
 await page.click('#saveDraft');
 await page.waitForSelector('#barMsg.ok');
 let pub = await (await page.request.get(BASE + '/api/public/config')).json();
@@ -158,7 +175,8 @@ await pub3.locator('.qgp-item', { hasText: '小豆' }).click();
 await pub3.waitForFunction(() => window.qgDaily.state.res[0].name === '小豆');
 await pub3.locator('#dyList .dy-res[data-i="1"] input[type=file]').setInputFiles(photo);
 await pub3.waitForFunction(() => !!window.qgDaily.state.res[1].photo);
-await pub3.locator('#dyList .dy-res[data-i="1"] input[type=text]').fill('雪織');
+// 手動輸入名字：文案按名字從名冊配對 IG
+await pub3.locator('#dyList .dy-res[data-i="1"] input[type=text]').fill('幽月');
 // 小豆 has no default photo: upload one for this poster only (does not touch the site default)
 await pub3.locator('#dyList .dy-res[data-i="0"] input[type=file]').setInputFiles(photo);
 await pub3.waitForFunction(() => !!window.qgDaily.state.res[0].photo);
@@ -166,9 +184,10 @@ await pub3.fill('#dyDate', '2026-11-19'); await pub3.dispatchEvent('#dyDate', 'c
 await Promise.all([pub3.waitForEvent('download', { timeout: 20000 }).catch(() => null), pub3.click('#dyPng')]);
 await pub3.waitForSelector('#promo:not([hidden])', { timeout: 15000 });
 const dtext = await pub3.textContent('#promoText');
-assert.match(dtext, /19 Nov 2026/);
-assert.match(dtext, /【限定】小豆 @rinnkaunn\n雪織/);
-assert.match(dtext, /6:00pm ─ 10:00pm/);
+assert.match(dtext, /🗓 19 \/ 11 𝕿𝖍𝖚/);
+assert.match(dtext, /⏰ 6:00pm ─ 10:00pm/);
+assert.match(dtext, /⚜ 出沒居民\n⚜ 幽月 @yuzuki_qg\n♦️ 限定居民\n♦️ 小豆 @rinnkaunn\n/);
+assert.doesNotMatch(dtext, /影子精靈|試煉者/);
 
 assert.deepEqual(errors, [], 'no page errors');
 step('PASS');
