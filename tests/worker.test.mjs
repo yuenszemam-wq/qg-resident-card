@@ -157,6 +157,98 @@ test('archive: hidden from the public picker, kept in admin, survives sync, can 
   assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM residents').get().n, 3);
 });
 
+// ------------------------------------------------------------- Google Drive (weekly photos)
+const FOLDER = '1SE2spJD5yj_WNKBBKJCzXo6e3eSjSvn19h2Ibb6X_FTk-LgVpIG7pso141ZG1jN1oEbRXITw';
+function driveFiles() {
+  const jpg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 9, 9]);
+  return { folder: FOLDER, files: [
+    { id: 'photoAAAAAAAAAA1', name: 'a.jpg', mimeType: 'image/jpeg', parents: [FOLDER], bytes: jpg },
+    { id: 'photoBBBBBBBBBB2', name: 'b.heic', mimeType: 'image/heic', parents: [FOLDER], bytes: new Uint8Array([1, 2, 3]) },
+    { id: 'otherCCCCCCCCCC3', name: 'elsewhere.jpg', mimeType: 'image/jpeg', parents: ['someOtherFolder123'], bytes: jpg },
+    { id: 'docDDDDDDDDDDDD4', name: 'notes.pdf', mimeType: 'application/pdf', parents: [FOLDER], bytes: jpg },
+    { id: 'trashEEEEEEEEEE5', name: 'old.jpg', mimeType: 'image/jpeg', parents: [FOLDER], trashed: true, bytes: jpg },
+  ] };
+}
+
+test('drive: lists only images in the folder; needs admin; reports not configured', async () => {
+  google.drive = driveFiles();
+  assert.equal((await data(req('/api/admin/drive/photos'))).status, 401);
+  const cookie = await loginCookie();
+  const none = await data(req('/api/admin/drive/photos', { cookie }));
+  assert.equal(none.body.configured, false, 'no DRIVE_FOLDER_ID yet');
+  env.DRIVE_FOLDER_ID = FOLDER;
+  const res = await data(req('/api/admin/drive/photos', { cookie }));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.configured, true);
+  assert.equal(res.body.serviceAccount, 'qg-reader@example.iam.gserviceaccount.com');
+  assert.deepEqual(res.body.photos.map(p => p.id), ['photoAAAAAAAAAA1', 'photoBBBBBBBBBB2']);
+  assert.ok(!JSON.stringify(res.body).includes('owner-email'), 'only whitelisted fields');
+  assert.ok(google.drive.lastQuery.includes(`'${FOLDER}' in parents`));
+  const tokenCall = google.calls.filter(u => u.startsWith('https://oauth2'));
+  assert.ok(tokenCall.length >= 1);
+});
+
+test('drive: serves originals and HEIC renditions, refuses files outside the folder', async () => {
+  google.drive = driveFiles(); env.DRIVE_FOLDER_ID = FOLDER;
+  const cookie = await loginCookie();
+  const jpg = await call(req('/api/admin/drive/photos/photoAAAAAAAAAA1/content', { cookie }));
+  assert.equal(jpg.status, 200);
+  assert.equal(jpg.headers.get('content-type'), 'image/jpeg');
+  assert.match(jpg.headers.get('cache-control'), /^private/);
+  assert.ok(google.calls.some(u => u.includes('photoAAAAAAAAAA1?alt=media')));
+  const heic = await call(req('/api/admin/drive/photos/photoBBBBBBBBBB2/content', { cookie }));
+  assert.equal(heic.status, 200);
+  assert.equal(heic.headers.get('content-type'), 'image/jpeg', 'HEIC comes back as Drive JPEG rendition');
+  assert.ok(google.calls.some(u => u.includes('photoBBBBBBBBBB2=s2000')));
+  const thumb = await call(req('/api/admin/drive/photos/photoAAAAAAAAAA1/thumb', { cookie }));
+  assert.equal(thumb.status, 200);
+  for (const id of ['otherCCCCCCCCCC3', 'docDDDDDDDDDDDD4', 'trashEEEEEEEEEE5', 'missingZZZZZZZZ9']) {
+    assert.equal((await call(req(`/api/admin/drive/photos/${id}/content`, { cookie }))).status, 404, id);
+  }
+  assert.equal((await call(req('/api/admin/drive/photos/..%2F..%2Fx/content', { cookie }))).status, 404);
+  google.drive.noThumbs = true;
+  assert.equal((await call(req('/api/admin/drive/photos/photoBBBBBBBBBB2/content', { cookie }))).status, 415);
+  assert.equal((await call(req('/api/admin/drive/photos/photoAAAAAAAAAA1/thumb', { cookie }))).status, 200, 'falls back to original');
+});
+
+test('drive: folder not shared gives a helpful message with the service account', async () => {
+  google.drive = { ...driveFiles(), denied: true }; env.DRIVE_FOLDER_ID = FOLDER;
+  const cookie = await loginCookie();
+  const res = await data(req('/api/admin/drive/photos', { cookie }));
+  assert.equal(res.status, 502);
+  assert.match(res.body.message, /qg-reader@example\.iam\.gserviceaccount\.com/);
+  assert.ok(!JSON.stringify(res.body).includes('forbidden'));
+});
+
+test('drive: manual archive, auto-archive after download, restore; Drive itself untouched', async () => {
+  google.drive = driveFiles(); env.DRIVE_FOLDER_ID = FOLDER;
+  const cookie = await loginCookie();
+  const list = async () => Object.fromEntries((await data(req('/api/admin/drive/photos', { cookie }))).body.photos.map(p => [p.id, p]));
+  const A = 'photoAAAAAAAAAA1', B = 'photoBBBBBBBBBB2';
+  assert.equal((await data(req(`/api/admin/drive/photos/${A}/archive`, { method: 'POST', cookie, body: { archived: 1 } }))).status, 422);
+  assert.equal((await data(req(`/api/admin/drive/photos/${A}/archive`, { method: 'POST', cookie, body: { archived: true }, headers: { 'x-qg-admin': '0' } }))).status, 403);
+  await data(req(`/api/admin/drive/photos/${A}/archive`, { method: 'POST', cookie, body: { archived: true } }));
+  let p = await list();
+  assert.equal(p[A].archived, true); assert.equal(p[A].archiveReason, 'manual'); assert.equal(p[A].archivedBy, '測試管理員');
+  assert.equal(p[B].archived, false);
+  // download without auto-archive only counts
+  let used = await data(req(`/api/admin/drive/photos/${B}/used`, { method: 'POST', cookie, body: { autoArchive: false } }));
+  assert.deepEqual(used.body, { ok: true, archived: false, useCount: 1 });
+  used = await data(req(`/api/admin/drive/photos/${B}/used`, { method: 'POST', cookie, body: { autoArchive: true } }));
+  assert.deepEqual(used.body, { ok: true, archived: true, useCount: 2 });
+  p = await list();
+  assert.equal(p[B].archiveReason, 'auto'); assert.equal(p[B].useCount, 2);
+  // using an already manually archived photo keeps its manual reason
+  await data(req(`/api/admin/drive/photos/${A}/used`, { method: 'POST', cookie, body: { autoArchive: true } }));
+  assert.equal((await list())[A].archiveReason, 'manual');
+  await data(req(`/api/admin/drive/photos/${B}/archive`, { method: 'POST', cookie, body: { archived: false } }));
+  p = await list();
+  assert.equal(p[B].archived, false); assert.equal(p[B].useCount, 2, 'restore keeps the usage count');
+  // nothing but GETs ever reached Google Drive
+  assert.ok(google.calls.filter(u => u.includes('googleapis.com/drive')).length > 0);
+  assert.ok(env.DB.raw.prepare(`SELECT COUNT(*) AS n FROM audit_log WHERE action LIKE 'drive.%'`).get().n >= 5);
+});
+
 // ------------------------------------------------------------- auth
 test('password hash verifies; wrong password rejected', async () => {
   assert.ok(await verifyPassword(PASSWORD, HASH));

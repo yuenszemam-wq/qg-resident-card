@@ -7,6 +7,7 @@ import { inspectImage, inspectFont, LIMITS, EXT } from './lib/media.js';
 import { defaultConfig, validateConfig, SCHEMA_VERSION, ASSET_SLOTS, PAGES, COPY_FIELDS, upgradeConfig } from './lib/config.js';
 import { ulid, nowIso, sha256Hex, CATEGORIES } from './lib/util.js';
 import { clientIp } from './lib/http.js';
+import { driveConfig, listPhotos, photoThumb, photoContent, isDriveId } from './lib/drive.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -58,6 +59,18 @@ const archiveReady = new WeakMap();
 function ensureArchive(db) {
   if (!archiveReady.has(db)) archiveReady.set(db, db.prepare(ARCHIVE_DDL).run().catch(e => { archiveReady.delete(db); throw e; }));
   return archiveReady.get(db);
+}
+
+// 與 migrations/0003_drive_photos.sql 相同
+const DRIVE_DDL = `CREATE TABLE IF NOT EXISTS drive_photos (
+  file_id TEXT PRIMARY KEY, archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
+  archive_reason TEXT NOT NULL DEFAULT '' CHECK (archive_reason IN ('', 'manual', 'auto')),
+  archived_at TEXT, archived_by TEXT NOT NULL DEFAULT '', use_count INTEGER NOT NULL DEFAULT 0,
+  last_used_at TEXT, updated_at TEXT NOT NULL)`;
+const driveReady = new WeakMap();
+function ensureDrive(db) {
+  if (!driveReady.has(db)) driveReady.set(db, db.prepare(DRIVE_DDL).run().catch(e => { driveReady.delete(db); throw e; }));
+  return driveReady.get(db);
 }
 
 // ---------------------------------------------------------------- config storage
@@ -367,6 +380,55 @@ async function adminApi(request, env, url) {
     ]);
     await audit(env, actor, 'config.restore', String(row.version_id), {});
     return json({ ok: true });
+  }
+
+  // ---- Google Drive photos (weekly schedule picker); archive state lives in D1 only
+  if (path === 'drive/photos' && method === 'GET') {
+    const cfg = driveConfig(env);
+    if (!cfg.sa || !cfg.folder) return json({ configured: false, serviceAccount: cfg.email, photos: [] });
+    const { photos } = await listPhotos(env);
+    await ensureDrive(env.DB);
+    const rows = (await env.DB.prepare('SELECT * FROM drive_photos').all()).results || [];
+    const st = new Map(rows.map(r => [r.file_id, r]));
+    return json({
+      configured: true, serviceAccount: cfg.email,
+      photos: photos.map(p => {
+        const r = st.get(p.id) || {};
+        return { ...p, archived: !!r.archived, archiveReason: r.archived ? r.archive_reason : '', archivedAt: r.archived ? r.archived_at : null,
+          archivedBy: r.archived ? r.archived_by : null, useCount: r.use_count || 0, lastUsedAt: r.last_used_at || null };
+      }),
+    });
+  }
+  if ((m = path.match(/^drive\/photos\/([A-Za-z0-9_-]{10,200})\/(thumb|content)$/)) && method === 'GET') {
+    return m[2] === 'thumb' ? photoThumb(env, m[1]) : photoContent(env, m[1]);
+  }
+  if ((m = path.match(/^drive\/photos\/([A-Za-z0-9_-]{10,200})\/(archive|used)$/)) && method === 'POST') {
+    if (!isDriveId(m[1])) throw new HttpError(404, 'not_found', '找不到相片');
+    const body = await readJson(request, 4096);
+    await ensureDrive(env.DB);
+    const now = nowIso();
+    if (m[2] === 'archive') {
+      if (typeof body.archived !== 'boolean') throw new HttpError(422, 'bad_request', 'archived 必須是 true 或 false');
+      await env.DB.prepare(`INSERT INTO drive_photos (file_id, archived, archive_reason, archived_at, archived_by, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(file_id) DO UPDATE SET archived = excluded.archived, archive_reason = excluded.archive_reason,
+        archived_at = excluded.archived_at, archived_by = excluded.archived_by, updated_at = excluded.updated_at`)
+        .bind(m[1], body.archived ? 1 : 0, body.archived ? 'manual' : '', body.archived ? now : null, body.archived ? actor : '', now).run();
+      await audit(env, actor, body.archived ? 'drive.archive' : 'drive.unarchive', m[1], {});
+      return json({ ok: true, archived: body.archived });
+    }
+    // 'used': 用這張相下載了更表；autoArchive 時同時封存（已手動封存的保持原狀）
+    const auto = body.autoArchive === true;
+    await env.DB.prepare(`INSERT INTO drive_photos (file_id, archived, archive_reason, archived_at, archived_by, use_count, last_used_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 1, ?, ?) ON CONFLICT(file_id) DO UPDATE SET use_count = use_count + 1, last_used_at = excluded.last_used_at,
+      updated_at = excluded.updated_at,
+      archive_reason = CASE WHEN drive_photos.archived = 1 THEN drive_photos.archive_reason ELSE excluded.archive_reason END,
+      archived_at = CASE WHEN drive_photos.archived = 1 THEN drive_photos.archived_at ELSE excluded.archived_at END,
+      archived_by = CASE WHEN drive_photos.archived = 1 THEN drive_photos.archived_by ELSE excluded.archived_by END,
+      archived = MAX(drive_photos.archived, excluded.archived)`)
+      .bind(m[1], auto ? 1 : 0, auto ? 'auto' : '', auto ? now : null, auto ? actor : '', now, now).run();
+    await audit(env, actor, auto ? 'drive.used.archive' : 'drive.used', m[1], {});
+    const row = await env.DB.prepare('SELECT archived, use_count FROM drive_photos WHERE file_id = ?').bind(m[1]).first();
+    return json({ ok: true, archived: !!row.archived, useCount: row.use_count });
   }
 
   if (path === 'audit' && method === 'GET') {

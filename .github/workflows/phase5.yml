@@ -7,6 +7,7 @@ on:
       - 'ui/**'
       - 'index.html'
       - 'daily/**'
+      - 'weekly/**'
       - 'migrations/**'
       - 'tests/**'
       - 'wrangler.jsonc'

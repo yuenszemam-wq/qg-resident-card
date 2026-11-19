@@ -188,6 +188,7 @@
 <link rel="stylesheet" href="calendar/ui.css">
 <link rel="stylesheet" href="ui/unified-editors.css">
 <link rel="stylesheet" href="daily/daily.css">
+<link rel="stylesheet" href="weekly/drive.css">
 </head>
 <body>
   <nav class="tabs" role="tablist" aria-label="分頁">
@@ -292,6 +293,7 @@
       </button>
       <div class="wk-side">
         <label class="file">📷 選擇相片<input type="file" id="wkPhoto" accept="image/*"></label>
+        <button type="button" class="file wk-drive-btn" id="wkDrive">☁️ 從 Google Drive 選擇</button>
         <button class="adj-open" id="wkOpenPhoto"><span>🖼️</span><span class="t">調整相片位置</span><span class="go">›</span></button>
         <button class="adj-open" id="wkOpenText"><span>✏️</span><span class="t">文字微調</span><span class="go">›</span></button>
         <button class="btn" id="wkPlay">▶ 預覽動畫</button>
@@ -1137,7 +1139,7 @@ const ADJ_RANGE = Object.fromEntries(ADJ.map(([f,,mn,mx])=>[f,[mn,mx]]));
 const blankAdj = ()=>({size:0, sp:0, dx:0, dy:0});
 
 const state = { start:null, end:null, text:'', font:FONT_DEF, adj:blankAdj(),
-  photo:null, photoBlob:null, zoom:1, dx:0, dy:0 };
+  photo:null, photoBlob:null, zoom:1, dx:0, dy:0, driveId:null };
 const weeklyLayout = rememberLayout('weekly', state);
 let playing = false;
 
@@ -1434,12 +1436,15 @@ function blobToCanvas(blob){
     im.src = url;
   });
 }
-async function loadPhoto(f){
+// driveId：相片來自 Google Drive 時記住檔案 id，下載更表後可自動封存（weekly/drive.js）
+async function loadPhoto(f, driveId=null){
+  if(weeklyExporting) return false;
   try{
-    state.photo = await blobToCanvas(f); state.photoBlob = null;
+    state.photo = await blobToCanvas(f); state.photoBlob = null; state.driveId = driveId;
     weeklyLayout.restorePhoto(); clampPos(); syncZoom(); still(); updateSum();
     say('');
-  }catch(err){ say('相片讀取失敗，請換一張再試'); }
+    return true;
+  }catch(err){ say('相片讀取失敗，請換一張再試'); return false; }
 }
 $('wkPhoto').addEventListener('change', e=>{ const f = e.target.files && e.target.files[0]; e.target.value = ''; if(f) loadPhoto(f); });
 function syncZoom(){ window.qgEditor?.sync('weekly'); }
@@ -1472,7 +1477,7 @@ function playOnce(){
 }
 function stopPreview(){ if(playing && !weeklyExporting){ playToken++; playing = false; render(0,true); } }
 let weeklyExporting=false;
-const BUSY_IDS = ['wkPlay','wkPng','wkMp4','wkPrev','wkNext','wkStart','wkEnd','wkPhoto','wkThumb','wkOpenPhoto','wkOpenText'];
+const BUSY_IDS = ['wkPlay','wkPng','wkMp4','wkPrev','wkNext','wkStart','wkEnd','wkPhoto','wkDrive','wkThumb','wkOpenPhoto','wkOpenText'];
 function setBusy(b){
   weeklyExporting=b;
   BUSY_IDS.forEach(id=>$(id).disabled=b);
@@ -1510,7 +1515,7 @@ $('wkPng').addEventListener('click', async ()=>{
     ok = await saveBlob(blob, baseName()+'.png', say);
   }catch(err){ say('圖片生成失敗，請再試一次'); }
   finally{ setBusy(false); }
-  if(ok){window.qgWorkflow?.finish('weekly',true,'圖片已準備好');saveHistory();}
+  if(ok){window.qgWorkflow?.finish('weekly',true,'圖片已準備好');saveHistory();driveUsed();}
   else window.qgWorkflow?.fail('weekly','未能下載圖片');
 });
 
@@ -1546,8 +1551,10 @@ $('wkMp4').addEventListener('click', async ()=>{
   }finally{
     playing = false; $('wkRec').classList.remove('on'); setBusy(false); render(0,true);
   }
-  if(ok) saveHistory();
+  if(ok){ saveHistory(); driveUsed(); }
 });
+// 用 Google Drive 相片下載了更表：交給 weekly/drive.js 記錄及（如已開啟）自動封存
+function driveUsed(){ if(state.driveId) window.qgWeeklyDrive?.used(state.driveId); }
 $('wkSaveVid').addEventListener('click', async ()=>{
   if(pendingVideo){const ok=await saveBlob(pendingVideo.blob, pendingVideo.name, say);if(ok)window.qgWorkflow?.finish('weekly',true,'影片已儲存');else window.qgWorkflow?.fail('weekly','未能儲存影片');}
 });
@@ -1634,7 +1641,7 @@ $('wkHist').addEventListener('click', async e=>{
   const h = histCache[+go.dataset.i]; if(!h) return;
   try{
     const c = h.photo ? await blobToCanvas(h.photo) : null;
-    state.photo = c; state.photoBlob = h.photo || null;
+    state.photo = c; state.photoBlob = h.photo || null; state.driveId = null;
     state.font = h.font || FONT_DEF; state.adj = {...blankAdj(), ...(h.adj||{})};
     state.zoom = h.zoom||1; state.dx = h.dx||0; state.dy = h.dy||0;
     clampPos(); syncZoom(); layout = null;
@@ -1665,7 +1672,7 @@ function start(){
     })
     .catch(()=>{ started = false; say('素材載入失敗，請重新整理頁面'); });
 }
-window.qgWeekly = { start, isBusy:()=>weeklyExporting, render, state, DATE, resetLayout:()=>{ layout = null; } };
+window.qgWeekly = { start, isBusy:()=>weeklyExporting, render, state, DATE, resetLayout:()=>{ layout = null; }, loadPhoto, say };
 window.qgCards = window.qgCards || {};
 window.qgCards.weekly = {
   key:'weekly', id:'wkEd', panel:$('tab-weekly'), canvas:cv, thumb:$('wkThumb'),
@@ -1718,5 +1725,6 @@ window.qgCards.weekly = {
 <script src="ui/video.js"></script>
 <script src="ui/editor.js"></script>
 <script src="ui/workflow.js"></script>
+<script src="weekly/drive.js"></script>
 </body>
 </html>

@@ -15,7 +15,9 @@
     "run_worker_first": ["/api/*", "/media/*"]
   },
   "vars": {
-    "SHEET_ID": "1LOLGOskQi2lpahGrCdcpo8E4b3d2s78pA6eairtpHb4"
+    "SHEET_ID": "1LOLGOskQi2lpahGrCdcpo8E4b3d2s78pA6eairtpHb4",
+    // 每週更表相片來源（唯讀）：資料夾需分享給服務帳戶電郵（檢視者）
+    "DRIVE_FOLDER_ID": "1SE2spJD5yj_WNKBBKJCzXo6e3eSjSvn19h2Ibb6X_FTk-LgVpIG7pso141ZG1jN1oEbRXITw"
   },
   "d1_databases": [
     { "binding": "DB", "database_name": "qg-resident-card-db", "database_id": "e6156c2f-ec9f-4142-8ca4-a79147deebe3", "migrations_dir": "migrations" }
@@ -27,5 +29,5 @@
   // Secrets (set in the dashboard, never in this file):
   //   ADMIN_PASSWORD               管理密碼原文（最簡單）；或
   //   ADMIN_PASSWORD_HASH          pbkdf2-sha256$100000$<salt>$<hash>  (npm run hash-password)
-  //   GOOGLE_SERVICE_ACCOUNT_JSON  service-account key JSON with read access to the sheet
+  //   GOOGLE_SERVICE_ACCOUNT_JSON  service-account key JSON with read access to the sheet and the Drive folder
 }
