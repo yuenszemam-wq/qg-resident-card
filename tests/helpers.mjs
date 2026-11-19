@@ -1,6 +1,6 @@
 // Test doubles: D1 over node:sqlite, R2 over a Map, and a fake Google API.
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 class Stmt {
   constructor(db, sql, args = []) { this.db = db; this.sql = sql; this.args = args; }
@@ -16,7 +16,8 @@ class Stmt {
 
 export function makeD1() {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync(new URL('../migrations/0001_init.sql', import.meta.url), 'utf8'));
+  const dir = new URL('../migrations/', import.meta.url);
+  for (const f of readdirSync(dir).filter(f => f.endsWith('.sql')).sort()) db.exec(readFileSync(new URL(f, dir), 'utf8'));
   return {
     raw: db,
     prepare: sql => new Stmt(db, sql),
@@ -57,6 +58,10 @@ export function fakeGoogle(state) {
     if (url.startsWith('https://oauth2.googleapis.com/token')) {
       return Response.json({ access_token: 'tok', expires_in: 3600 });
     }
+    if (url.startsWith('https://www.googleapis.com/drive/v3/files') || url.startsWith('https://lh3.googleusercontent.com/')) {
+      if (init.headers?.Authorization !== 'Bearer tok') return new Response('', { status: 401 });
+      return fakeDrive(state, url);
+    }
     if (url.startsWith('https://sheets.googleapis.com/')) {
       if (init.headers?.Authorization !== 'Bearer tok') return new Response('', { status: 401 });
       return Response.json({ values: state.rows.map(r => [...r, '98765432', 'salary 5000', 'private note']) });
@@ -94,4 +99,29 @@ export function makePng(w, h, { exif = false, alpha = false } = {}) {
     chunk('IDAT', deflateSync(Buffer.concat(rows))),
     chunk('IEND', Buffer.alloc(0)),
   ]));
+}
+
+/** Fake Drive: state.drive = { folder, files: [{ id, name, mimeType, parents, trashed?, bytes, size? }], denied? } */
+function fakeDrive(state, url) {
+  const d = state.drive || { files: [] };
+  if (d.denied) return new Response('{"error":"forbidden"}', { status: 403 });
+  const u = new URL(url);
+  if (u.hostname === 'lh3.googleusercontent.com') {
+    const f = d.files.find(x => u.pathname.includes(x.id));
+    return f ? new Response(new Uint8Array([0xff, 0xd8, 0xff, 1]), { headers: { 'content-type': 'image/jpeg' } }) : new Response('', { status: 404 });
+  }
+  const m = u.pathname.match(/\/files\/([^/]+)$/);
+  if (!m) {
+    const q = u.searchParams.get('q') || '';
+    const folder = (q.match(/^'([^']+)' in parents/) || [])[1];
+    d.lastQuery = q;
+    const files = d.files.filter(f => f.parents.includes(folder) && !f.trashed && f.mimeType.startsWith('image/'))
+      .map(({ id, name, mimeType, size, bytes }) => ({ id, name, mimeType, size: String(size ?? bytes.length), createdTime: '2026-11-19T00:00:00Z', secret: 'owner-email' }));
+    return Response.json({ files });
+  }
+  const f = d.files.find(x => x.id === m[1]);
+  if (!f) return new Response('', { status: 404 });
+  if (u.searchParams.get('alt') === 'media') return new Response(f.bytes, { headers: { 'content-type': f.mimeType } });
+  return Response.json({ id: f.id, mimeType: f.mimeType, size: String(f.size ?? f.bytes.length), parents: f.parents, trashed: !!f.trashed,
+    thumbnailLink: d.noThumbs ? undefined : `https://lh3.googleusercontent.com/drive-storage/${f.id}=s220` });
 }

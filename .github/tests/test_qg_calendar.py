@@ -1,5 +1,6 @@
 import calendar
 import json
+import re
 import struct
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
@@ -31,7 +32,10 @@ def verify(browser):
         start, length = calendar.monthrange(year, month)
         expect(cells).to_have_count(42)
         expect(page.locator("#cal-grid button:enabled")).to_have_count(length)
-        expect(cells.nth((start + 1) % 7)).to_have_attribute("aria-label", f"{month}月1日")
+        # 公眾假期的日子會在名稱後加上假期名，例如「5月1日（勞動節）」
+        expect(cells.nth((start + 1) % 7)).to_have_attribute("aria-label", re.compile(rf"^{month}月1日(（[^）]+）)?$"))
+        if (year, month) == (2026, 5):
+            expect(cells.nth((start + 1) % 7)).to_have_attribute("aria-label", "5月1日（勞動節）")
     def day(n):
         return page.locator(f'#cal-grid button[aria-label="6月{n}日"]')
     day(1).click()

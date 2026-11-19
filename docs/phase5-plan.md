@@ -71,6 +71,9 @@ Cloudflare Worker qg-resident-card（新增 worker/index.js，靜態資源維持
 - `sync_state`：上次成功同步時間、錯誤狀態
 - `audit_log`：管理操作（誰、何時、做了甚麼、目標 id；不記錄內容本身）
 - `rate_limit`：管理 API 簡單計數
+- `resident_archive`（`migrations/0002_resident_archive.sql`，2026-11-19 新增）：封存居民（resident_id、archived 0/1、更新時間及管理員）。封存只會令 `/api/public/residents` 不回傳該居民；同步、照片、分類照舊。Worker 首次使用時亦會執行相同的 `CREATE TABLE IF NOT EXISTS`，所以未套用 migration 都不會出錯；仍建議在 Cloudflare 套用：`npx wrangler d1 migrations apply qg-resident-card-db --remote`。
+
+- `drive_photos`（`migrations/0003_drive_photos.sql`，2026-11-19 新增）：每週更表 Google Drive 相片的封存狀態（file_id、archived、archive_reason manual／auto、使用次數）。Drive 只用 `drive.readonly`，封存不會改動 Drive。Worker 首次使用時亦會自動建立。套用：`npx wrangler d1 migrations apply qg-resident-card-db --remote`。
 
 ## 7. 設定、版本與優先順序
 
@@ -117,7 +120,7 @@ Google 憑證選項：
 | Secret | 內容 |
 |---|---|
 | `ADMIN_PASSWORD` | 管理密碼原文（類型選 **Secret**）。或改用 `ADMIN_PASSWORD_HASH`＝`npm run hash-password` 的輸出 |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | 服務帳戶金鑰 JSON 全文；只需 Sheets API 唯讀，**試算表擁有人需把服務帳戶電郵加入為「檢視者」** |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | 服務帳戶金鑰 JSON 全文；只需 Sheets API 及 Drive API 唯讀，**試算表及每週更表 Drive 資料夾需把服務帳戶電郵加入為「檢視者」**；Google Cloud 專案需啟用 Google Drive API |
 
 未設定時：公開製作器照常運作（沒有名冊）；管理後台登入顯示「管理密碼尚未設定」。
 

@@ -6,7 +6,7 @@ export const SHEET_RANGE = "'表格回應 1'!B2:C";
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 
-let cachedToken = null; // { token, exp, email }
+const tokenCache = new Map(); // scope -> { token, exp, email }
 
 function pemToPkcs8(pem) {
   const body = String(pem).replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
@@ -24,11 +24,13 @@ export function parseServiceAccount(raw) {
   return { email: String(sa.client_email), key: String(sa.private_key) };
 }
 
-async function accessToken(sa, fetchImpl) {
+/** OAuth access token for the service account, cached per scope. */
+export async function accessToken(sa, fetchImpl, scope = SCOPE) {
   const now = Math.floor(Date.now() / 1000);
-  if (cachedToken && cachedToken.email === sa.email && cachedToken.exp - 60 > now) return cachedToken.token;
+  const cached = tokenCache.get(scope);
+  if (cached && cached.email === sa.email && cached.exp - 60 > now) return cached.token;
   const header = b64urlEncode(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const claims = b64urlEncode(JSON.stringify({ iss: sa.email, scope: SCOPE, aud: TOKEN_URL, iat: now, exp: now + 3600 }));
+  const claims = b64urlEncode(JSON.stringify({ iss: sa.email, scope, aud: TOKEN_URL, iat: now, exp: now + 3600 }));
   const key = await crypto.subtle.importKey('pkcs8', pemToPkcs8(sa.key), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
   const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(`${header}.${claims}`));
   const assertion = `${header}.${claims}.${b64urlEncode(sig)}`;
@@ -39,8 +41,8 @@ async function accessToken(sa, fetchImpl) {
   });
   if (!res.ok) throw new SheetsError(`token_${res.status}`);
   const data = await res.json();
-  cachedToken = { token: data.access_token, exp: now + (Number(data.expires_in) || 3600), email: sa.email };
-  return cachedToken.token;
+  tokenCache.set(scope, { token: data.access_token, exp: now + (Number(data.expires_in) || 3600), email: sa.email });
+  return data.access_token;
 }
 
 export class SheetsError extends Error {}
@@ -58,7 +60,7 @@ export async function fetchRoster(env, fetchImpl = fetch) {
     '?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE&fields=values';
   const res = await fetchImpl(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
-    if (res.status === 401) cachedToken = null;
+    if (res.status === 401) tokenCache.delete(SCOPE);
     throw new SheetsError(`sheets_${res.status}`);
   }
   const data = await res.json();
@@ -67,4 +69,5 @@ export async function fetchRoster(env, fetchImpl = fetch) {
   return values.map(row => ({ name: String((row && row[0]) ?? ''), ig: String((row && row[1]) ?? '') }));
 }
 
-export function _resetTokenCache() { cachedToken = null; }
+export function clearToken(scope) { tokenCache.delete(scope); }
+export function _resetTokenCache() { tokenCache.clear(); }

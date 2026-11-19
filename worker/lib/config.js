@@ -237,6 +237,7 @@ export function validateConfig(body, ctx = { assetKinds: new Map() }) {
       if (!TIME_RE.test(start) || !TIME_RE.test(end)) fail('預設開放時間格式應為 HH:MM');
       out.pages.daily = { text, layouts, times: { start, end } };
     }
+    if (page === 'calendar' && src.cal != null) out.pages.calendar = { text, cal: validateCalendar(src.cal) };
   }
 
   // Asset replacements.
@@ -264,6 +265,67 @@ export function validateConfig(body, ctx = { assetKinds: new Map() }) {
 
   const g = isObj(body.general) ? body.general : {};
   out.general = { openTime: String(g.openTime ?? '6:00pm ─ 10:00pm').slice(0, 60) };
+  return out;
+}
+
+// QG 月曆：標題、星期、模板文字覆蓋、日期顏色、公眾假期（calendar/calendar.js 繪畫）
+export const CALENDAR_LINES = ['legend', 'addrTitle', 'addr', 'hoursTitle', 'hours', 'hoursNote', 'note1', 'note2'];
+const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+const DATE_RE = /^[1-9]\d{3}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+const plain = (v, max, path) => {
+  const t = String(v ?? '').replace(/\r\n?/g, '\n');
+  if (t.length > max) fail(`${path} 太長（最多 ${max} 字）`);
+  if (/[\u0000-\u0009\u000b-\u001f]/.test(t)) fail(`${path} 包含無效控制字元`);
+  return t;
+};
+function validateCalendar(c) {
+  if (!isObj(c)) fail('calendar.cal 格式錯誤');
+  const out = {};
+  if (c.title != null) {
+    const t = plain(c.title, 60, '月曆標題');
+    const bad = [...t.matchAll(/\{\{\s*([^}]*?)\s*\}\}/g)].map(m => m[1]).filter(k => !['MONTH', 'MONTH_ZH', 'M', 'YEAR'].includes(k));
+    if (bad.length) fail(`月曆標題有未知欄位：${bad.join('、')}`);
+    if (t.includes('\n')) fail('月曆標題只可一行');
+    out.title = t;
+  }
+  if (c.titleColor != null) { if (!COLOR_RE.test(c.titleColor)) fail('月曆標題顏色無效'); out.titleColor = c.titleColor; }
+  if (c.titleSize != null) out.titleSize = num(c.titleSize, -60, 40, '月曆標題大小');
+  if (c.titleDy != null) out.titleDy = num(c.titleDy, -120, 120, '月曆標題上下');
+  if (c.weekdays != null) {
+    if (!Array.isArray(c.weekdays) || c.weekdays.length !== 7) fail('星期必須有 7 個');
+    out.weekdays = c.weekdays.map((w, i) => { const t = plain(w, 8, `星期 ${i + 1}`); if (t.includes('\n')) fail('星期只可一行'); return t; });
+  }
+  if (c.colors != null) {
+    if (!isObj(c.colors)) fail('月曆顏色格式錯誤');
+    out.colors = {};
+    for (const k of ['weekday', 'weekend', 'holiday', 'marked', 'other']) if (c.colors[k] != null) {
+      if (!COLOR_RE.test(c.colors[k])) fail(`月曆顏色 ${k} 無效`);
+      out.colors[k] = c.colors[k];
+    }
+  }
+  if (c.showHolidays != null) out.showHolidays = !!c.showHolidays;
+  if (c.extraHolidays != null) {
+    if (!isObj(c.extraHolidays) || Object.keys(c.extraHolidays).length > 200) fail('自訂假期格式錯誤');
+    out.extraHolidays = {};
+    for (const [d, n] of Object.entries(c.extraHolidays)) {
+      if (!DATE_RE.test(d)) fail(`假期日期無效：${d}`);
+      out.extraHolidays[d] = plain(n, 30, `假期名稱 ${d}`).replace(/\n/g, ' ');
+    }
+  }
+  if (c.offHolidays != null) {
+    if (!Array.isArray(c.offHolidays) || c.offHolidays.length > 200 || !c.offHolidays.every(d => DATE_RE.test(d))) fail('停用假期格式錯誤');
+    out.offHolidays = [...new Set(c.offHolidays)];
+  }
+  if (c.lines != null) {
+    if (!isObj(c.lines)) fail('月曆文字格式錯誤');
+    out.lines = {};
+    for (const [k, v] of Object.entries(c.lines)) {
+      const base = k.endsWith('Color') ? k.slice(0, -5) : k;
+      if (!CALENDAR_LINES.includes(base)) fail(`未知的月曆文字位置：${k}`);
+      if (k.endsWith('Color')) { if (v != null && v !== '') { if (!COLOR_RE.test(v)) fail(`月曆文字顏色無效：${base}`); out.lines[k] = v; } }
+      else if (v != null && v !== '') out.lines[k] = plain(v, 120, `月曆文字 ${k}`);
+    }
+  }
   return out;
 }
 
