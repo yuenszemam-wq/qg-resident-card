@@ -187,12 +187,14 @@
 <link rel="apple-touch-icon" href="calendar/icon.png"><link rel="icon" href="calendar/icon.png">
 <link rel="stylesheet" href="calendar/ui.css">
 <link rel="stylesheet" href="ui/unified-editors.css">
+<link rel="stylesheet" href="daily/daily.css">
 </head>
 <body>
   <nav class="tabs" role="tablist" aria-label="分頁">
     <button role="tab" id="tabBtnPromo" data-tab="promo" class="on" aria-selected="true">限定宣傳</button>
     <button role="tab" id="tabBtnShadow" data-tab="shadow" aria-selected="false">影子精靈</button>
     <button role="tab" id="tabBtnWeekly" data-tab="weekly" aria-selected="false">每週更表</button>
+    <button role="tab" id="tabBtnDaily" data-tab="daily" aria-selected="false">每日更表</button>
   <button role="tab" id="tabBtnCalendar" data-tab="calendar" aria-selected="false">📅 QG月曆</button></nav>
 
   <section class="tab" id="tab-promo" role="tabpanel" aria-labelledby="tabBtnPromo">
@@ -328,6 +330,60 @@
     </div>
 
     <p class="note">揀開始日期後，結束日期會自動設為 6 日後，亦可以自己改。下載圖片或影片後會自動記錄（日期、相片、文字微調），按記錄可以重新載入。記錄只保存在這部裝置的瀏覽器。影片是 1080 × 1920、約 5 秒，即時錄製，錄影期間請不要離開這個頁面。</p>
+  </section>
+
+  <section class="tab" id="tab-daily" role="tabpanel" aria-labelledby="tabBtnDaily" hidden>
+    <h1 class="wk-h1">異世界居民每日出沒啟示錄</h1>
+
+    <div class="wk-top">
+      <button class="wk-thumb" id="dyThumb" type="button" aria-label="放大預覽及調整版面">
+        <canvas id="dyCv" width="1012" height="1350" aria-label="每日更表預覽"></canvas>
+        <span class="zoomtag">🔍 按此放大</span>
+        <span class="rec" id="dyRec">● 製作中</span>
+      </button>
+      <div class="wk-side">
+        <button class="adj-open" id="dyOpenFrame" type="button"><span>🖼️</span><span class="t">調整版面及相片</span><span class="go">›</span></button>
+        <button class="adj-open" id="dyOpenText" type="button"><span>✏️</span><span class="t">文字微調</span><span class="go">›</span></button>
+        <button class="btn" id="dyPlay" type="button">▶ 預覽動畫</button>
+        <div class="adj-sum" id="dySum"></div>
+      </div>
+    </div>
+
+    <div class="panel wk-panel">
+      <label for="dyDate">日期（點選日曆）</label>
+      <input type="date" id="dyDate" aria-label="每日更表日期">
+      <div class="row dy-times">
+        <div><label for="dyStart">開始時間</label><input type="time" id="dyStart" step="300"></div>
+        <div><label for="dyEnd">結束時間</label><input type="time" id="dyEnd" step="300"></div>
+      </div>
+      <div class="dateout" id="dyOut"></div>
+    </div>
+
+    <div class="panel wk-panel">
+      <label id="dyCountLbl">居民</label>
+      <div class="seg dy-count" id="dyCountSeg" role="group" aria-label="居民人數">
+        <button type="button" data-n="1">1</button><button type="button" data-n="2">2</button><button type="button" data-n="3">3</button>
+        <button type="button" data-n="4">4</button><button type="button" data-n="5">5</button><button type="button" data-n="6">6</button>
+      </div>
+      <div class="dy-list" id="dyList"></div>
+      <button class="dy-addbtn" id="dyAdd" type="button">＋ 增加居民</button>
+      <div class="adj-sum" id="dyKept"></div>
+    </div>
+
+    <div class="btns wk-btns">
+      <button class="btn primary" id="dyPng" type="button">下載圖片 PNG</button>
+      <button class="btn primary" id="dyMp4" type="button">下載影片（5 秒）</button>
+    </div>
+    <div class="status" id="dyStatus" role="status"></div>
+    <div class="save" id="dySaveBox"><button class="btn primary full" id="dySaveVid" type="button" style="width:100%">💾 儲存影片</button></div>
+
+    <div class="panel">
+      <label>最近 10 次記錄</label>
+      <div class="wk-hist" id="dyHist"></div>
+      <div class="adj-sum" id="dyHistMsg"></div>
+    </div>
+
+    <p class="note">揀居民人數（1～6 人），逐位上傳相片、填名字及分類（常駐不顯示標記；限定、影子、試煉會在相框左上角顯示標記），再揀日期及開放時間。「調整版面及相片」可以拖動相框、調整大小（統一或獨立），以及拖動、縮放框內相片。圖片是 1012 × 1350 PNG；影片是 1080 × 1920、約 5 秒。下載後會自動記錄最近 10 次（同一日期只保留最新一次），記錄只保存在這部裝置的瀏覽器。</p>
   </section>
 
   <div class="modal" id="promo" hidden role="dialog" aria-modal="true" aria-labelledby="promoTitle">
@@ -1003,6 +1059,7 @@ Promise.all(Object.keys(A).map(k=>loadImg(A[k].src).then(i=>img[k]=i))).then(asy
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{ if(!playing) render(0,true); });
 });
 </script>
+<script src="daily/daily.js"></script>
 <script>
 // ================= 每週更表 =================
 // 素材在 weekly/ 資料夾，第一次打開這個分頁時才載入
@@ -1599,7 +1656,7 @@ window.qgCards.weekly = {
 
 // ================= 分頁切換 =================
 (function(){
-  const TABS = ['promo','shadow','weekly','calendar'];
+  const TABS = ['promo','shadow','weekly','daily','calendar'];
   const btns = [...document.querySelectorAll('.tabs button')];
   function show(name, push){
     if(!TABS.includes(name)) name = 'promo';
@@ -1607,12 +1664,13 @@ window.qgCards.weekly = {
     btns.forEach(b=>{ const on = b.dataset.tab===name; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
     if(name==='shadow') window.qgShadow?.start();
     if(name==='weekly') window.qgWeekly.start();
+    if(name==='daily') window.qgDaily?.start();
     if(push){ try{ history.replaceState(null, '', name==='promo' ? location.pathname+location.search : '#'+name); }catch(e){} }
     window.scrollTo(0,0);
   }
   btns.forEach(b=>b.addEventListener('click', ()=>{
     // Only encoding/exporting blocks navigation. Preview playback does not lock other tabs.
-    if(window.qgPromoView?.busy() || window.qgWeekly.isBusy() || window.qgShadow?.busy()) return;
+    if(window.qgPromoView?.busy() || window.qgWeekly.isBusy() || window.qgShadow?.busy() || window.qgDaily?.isBusy()) return;
     show(b.dataset.tab, true);
   }));
   show((location.hash||'').slice(1), false);

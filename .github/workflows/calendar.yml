@@ -7,6 +7,8 @@ on:
       - 'ui/**'
       - 'shadow/**'
       - 'weekly/**'
+      - 'daily/**'
+      - 'fonts/**'
       - 'video/**'
       - '.github/tests/test_qg_calendar.py'
       - '.github/workflows/calendar.yml'

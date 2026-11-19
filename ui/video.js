@@ -49,7 +49,8 @@ function mount(canvas) {
 }
 
 // 合成一格：背景 + 卡片（卡片畫布暫時唔畫自己的背景）
-async function compositor({bg, card, cardBg, frame}) {
+// place：卡片喺影片入面的位置（每日更表用：與加長背景逐點對齊），預設 = 放大到 1080 闊、上下置中
+async function compositor({bg, card, cardBg, frame, place}) {
   const bgImg = await loadBg(bg);
   const out = document.createElement('canvas');
   out.width = OUT_W; out.height = OUT_H;
@@ -57,6 +58,7 @@ async function compositor({bg, card, cardBg, frame}) {
   const o = out.getContext('2d');
   const CW = card.width, CH = card.height;
   const sh = CH * OUT_W / CW, sy = (OUT_H - sh) / 2;
+  const P = place || {x: 0, y: sy, w: OUT_W, h: sh};
   const s = Math.max(OUT_W / bgImg.width, OUT_H / bgImg.height);
   const bw = bgImg.width * s, bh = bgImg.height * s, bx = (OUT_W - bw) / 2, by = (OUT_H - bh) / 2;
   const cardCtx = card.getContext('2d');
@@ -65,7 +67,7 @@ async function compositor({bg, card, cardBg, frame}) {
     o.setTransform(1,0,0,1,0,0); o.globalAlpha = 1; o.globalCompositeOperation = 'source-over';
     o.imageSmoothingEnabled = true; o.imageSmoothingQuality = 'high';
     o.drawImage(bgImg, bx, by, bw, bh);
-    o.drawImage(card, 0, 0, CW, CH, 0, sy, OUT_W, sh);
+    o.drawImage(card, 0, 0, CW, CH, P.x, P.y, P.w, P.h);
     // 細預覽仍然顯示卡片原本背景
     if (cardBg) {
       cardCtx.save();
