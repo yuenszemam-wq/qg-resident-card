@@ -55,6 +55,15 @@
 
 選相片、填名字、IG，並透過 iPhone 原生日期選擇器挑選日期，就可以下載限定居民卡的 PNG 圖片或 5 秒影片。卡片及下載後可複製的宣傳文案都使用 `20 Nov 2026` 格式。下載圖片或儲存影片後都會彈出宣傳文案，可一鍵複製。圖片素材及現有 Canvas 動畫邏輯保持不變。
 
+## 居民名冊及管理中心（Phase 5）
+
+- 限定宣傳、影子精靈、每週更表上方有「👤 選擇居民」：從 Google Sheets 名冊（只讀 B 欄更表名稱、C 欄 IG）揀居民，自動填入名字、IG、預設相片及分類；之後仍可自行修改、拖動、換相，只影響今次製作。每日更表每位居民旁有 👤 按鈕。
+- 名冊經 Cloudflare Worker 讀取（`worker/`），5 分鐘快取；Google 連唔到時用最後成功的名單。
+- 管理中心：`/admin/`（頁底「⚙️ 管理中心」）。需要管理密碼，所有修改由伺服器驗證。可設定居民預設照片及分類、各頁文字預設（字型、大小、字距、位置）、每日更表 1–6 人相框版型、自訂字體（須確認授權）、圖片素材替換、宣傳文案模板（`{{NAME}}`、`{{IG}}`、`{{DATE}}` 等純文字代入）。
+- 設定流程：儲存草稿 → 預覽（只在管理員瀏覽器）→ 發佈；保留版本紀錄、差異及一鍵還原。
+- 資料：Cloudflare D1 `qg-resident-card-db`（居民 ID、照片配對、設定版本、日誌）、R2 `qg-resident-card-media`（照片、字體、素材）。製作記錄仍只存在各裝置的 IndexedDB。
+- 設計、Secrets 設定及測試方法見 `docs/phase5-plan.md`。
+
 ## 部署
 
 `main` 已連接 Cloudflare Workers Builds。合併後可在 `qg-resident-card` 的 Builds 核對 commit，再在 Deployments 確認正式流量。[開啟 QG 月曆](https://qg-resident-card.yuenszemam.workers.dev/#calendar)

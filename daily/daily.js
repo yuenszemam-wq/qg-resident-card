@@ -1047,5 +1047,6 @@ function start(){
     })
     .catch(() => { started = false; say('素材載入失敗，請重新整理頁面'); });
 }
-window.qgDaily = {start, isBusy:() => exporting, render, state, setCount, LAYOUTS, frameRect, VIDEO_PLACE};
+window.qgDaily = {start, isBusy:() => exporting, render, state, setCount, LAYOUTS, frameRect, VIDEO_PLACE,
+  loadPhoto, renderList, still:() => still(), started:() => started};
 })();
