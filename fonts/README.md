@@ -18,6 +18,7 @@ IG 和日期可在「文字微調」揀以下字體（預設 Kalam）。全部�
 | Sniglet | `sniglet-400-latin.woff2` | 400 | `OFL-Sniglet.txt` |
 | Andika | `andika-700-latin.woff2` | 700 | `OFL-Andika.txt` |
 | Playpen Sans | `playpen-sans-500/600-latin.woff2` | 500、600 | `OFL-PlaypenSans.txt` |
+| Leckerli One | `leckerli-one-400-latin.woff2` | 400 | `OFL-LeckerliOne.txt` |（每日更表日期及時間預設字體）
 
 角色名字可揀的字體（Zen Kurenaido、Yuji Syuku、Yuji Boku、Yusei Magic、Mochiy Pop One、Kiwi Maru、Darumadrop One、Hachi Maru Pop、Chiron GoRound TC）都是 SIL OFL 1.1。因為中日文字體檔太大，經 Google Fonts 按字分片、選用時才載入，不放在本 repo。
 

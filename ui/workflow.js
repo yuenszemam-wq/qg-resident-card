@@ -59,7 +59,7 @@ function card(template){
   containers[template]=panel;
 }
 function layoutProgress(template){
-  const root=$(ids[template]||(template==='weekly'?'tab-weekly':null));
+  const root=$(ids[template]||'tab-'+template);
   if(!root)return;
   const node=document.createElement('div');
   node.id='qg-progress-'+template;node.className='qg-export-progress';node.hidden=true;
@@ -221,6 +221,6 @@ function caption(template,title,text){
 }
 window.qgWorkflow={progress,finish,fail,record,caption,refresh:display,restore};
 for(const name of ['promo','shadow','calendar'])card(name);
-for(const name of ['promo','shadow','calendar','weekly'])layoutProgress(name);
+for(const name of ['promo','shadow','calendar','weekly','daily'])layoutProgress(name);
 for(const name of ['promo','shadow','calendar'])display(name);
 })();

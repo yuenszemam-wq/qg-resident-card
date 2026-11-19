@@ -1,0 +1,51 @@
+/* 每日更表（異世界居民每日出沒啟示錄） */
+/* 日期／時間字體：Leckerli One（SIL OFL 1.1，見 fonts/OFL-LeckerliOne.txt） */
+@font-face{font-family:"Leckerli One";font-style:normal;font-weight:400;font-display:swap;
+  src:url(../fonts/leckerli-one-400-latin.woff2) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+/* 五個分頁：收細字，iPhone 一行放得落 */
+.tabs{gap:4px;padding-left:6px;padding-right:6px}
+.tabs button{flex:1 1 auto;font-size:14px;white-space:nowrap;padding:9px 6px;min-width:0}
+@media(max-width:420px){.tabs button{font-size:13px;padding:9px 4px}}
+@media(max-width:350px){.tabs button{font-size:12px;padding:8px 2px}}
+
+#tab-daily input[type=time]{-webkit-appearance:none;appearance:none;width:100%;min-width:0;max-width:100%;display:block;min-height:46px;
+  font-size:17px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#120c1a;color:var(--text);outline:none;color-scheme:dark}
+#tab-daily input[type=time]:focus{border-color:var(--accent)}
+#tab-daily .row>div{min-width:0}
+#tab-daily .dy-times{margin-top:2px}
+#tab-daily input:disabled,#tab-daily select:disabled{opacity:.5}
+
+/* 人數 */
+.dy-count{grid-template-columns:repeat(6,1fr)}
+.dy-count button{font-size:16px;font-variant-numeric:tabular-nums}
+
+/* 居民清單：左邊相片，右邊編號／分類／調整／刪除，下面名字 */
+.dy-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.dy-res{display:flex;gap:10px;align-items:stretch;padding:8px;border:1px solid var(--line);border-radius:12px;background:#1a1226}
+.dy-ph{position:relative;flex:none;width:78px;height:78px;margin:0;border-radius:10px;overflow:hidden;cursor:pointer;
+  border:1.5px dashed var(--accent);background:#120c1a;display:flex;align-items:center;justify-content:center;font-size:26px}
+.dy-ph canvas{width:100%;height:100%;display:block}
+.dy-ph .dy-file{display:none}
+.dy-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.dy-head{display:flex;align-items:center;gap:6px}
+.dy-no{flex:none;font-size:13px;color:var(--gold);font-weight:600}
+.dy-cat{flex:1;min-width:0;font-size:16px;padding:6px 8px;border-radius:9px;border:1px solid var(--line);background:#120c1a;color:var(--text)}
+.dy-adj{flex:none;padding:7px 10px}
+.dy-del{flex:none;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:#120c1a;color:var(--muted);font-size:18px;line-height:1;cursor:pointer}
+.dy-del:disabled{opacity:.35}
+.dy-mid input[type=text]{font-size:16px;padding:8px 10px}
+.dy-addbtn{width:100%;margin-top:10px;padding:11px;border-radius:10px;border:1.5px dashed var(--accent);background:#1a1226;color:var(--text);font-size:16px;cursor:pointer}
+.dy-addbtn:disabled{opacity:.5;border-style:solid}
+#dyKept{margin-top:6px}
+
+/* 編輯器：居民選擇 */
+.dy-chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.dy-chips::-webkit-scrollbar{display:none}
+.dy-chip{flex:none;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 11px;border-radius:999px;
+  border:1px solid var(--line);background:#120c1a;color:var(--muted);font-size:13px;cursor:pointer}
+.dy-chip.on{background:var(--accent);border-color:transparent;color:#fff;font-weight:600}
+.dy-ed .seg{grid-template-columns:repeat(3,1fr)}
+.dy-ed .seg.two{grid-template-columns:1fr 1fr}
+.dy-ed .dy-size{margin-top:5px}
