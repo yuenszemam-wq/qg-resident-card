@@ -151,6 +151,18 @@ test('admin API needs a session; /admin page itself grants nothing', async () =>
   assert.equal(forged.status, 401);
 });
 
+test('legacy daily copy default is upgraded to the new grouped template', async () => {
+  const { defaultConfig, upgradeConfig } = await import('../worker/lib/config.js');
+  const cfg = defaultConfig();
+  assert.equal(cfg.copy.daily.enabled, true);
+  assert.match(cfg.copy.daily.template, /🕯️ 異世界居民每日出沒啟示錄 🕯️/);
+  const legacy = structuredClone(cfg);
+  legacy.copy.daily = { enabled: false, template: '✧ 異世界居民每日出沒啟示錄 ✧\n📜 {{DATE}}\n🌙 {{TIME}}\n\n{{RESIDENT_LIST}}\n\n📍 旺角・西洋菜街 遠景大廈 3 樓 H2 室\n歡迎 DM 預約 🫶🏻' };
+  assert.deepEqual(upgradeConfig(legacy).copy.daily, cfg.copy.daily);
+  const edited = structuredClone(cfg); edited.copy.daily = { enabled: false, template: '自訂' };
+  assert.deepEqual(upgradeConfig(edited).copy.daily, { enabled: false, template: '自訂' });
+});
+
 test('plain ADMIN_PASSWORD secret also works', async () => {
   delete env.ADMIN_PASSWORD_HASH;
   env.ADMIN_PASSWORD = 'plain-pass';

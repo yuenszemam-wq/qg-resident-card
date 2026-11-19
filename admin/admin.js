@@ -65,11 +65,11 @@ const DAILY_LAYOUTS = {
 const FW = 233.7, FH = 231.9;
 const COPY_PAGES = { promo: '限定宣傳', shadow: '影子精靈', weekly: '每週更表', daily: '每日更表', calendar: 'QG 月曆' };
 const FIELD_INFO = { NAME: '居民名字', IG: 'Instagram', DATE: '日期', TIME: '開放時間', CATEGORY: '居民分類', RESIDENT_LIST: '多位居民', START_DATE: '開始日期', END_DATE: '結束日期' };
-const SAMPLE = { NAME: '幽月', IG: '@yuzuki_qg', DATE: '20 Nov 2026', TIME: '6:00pm ─ 10:00pm', CATEGORY: '常駐', RESIDENT_LIST: '幽月 @yuzuki_qg\n【限定】小豆 @rinnkaunn', START_DATE: '17 Nov 2026', END_DATE: '23 Nov 2026' };
+const SAMPLE = { NAME: '幽月', IG: '@yuzuki_qg', DATE: '20 Nov 2026', TIME: '6:00pm ─ 10:00pm', CATEGORY: '常駐', RESIDENT_LIST: '⚜ 出沒居民\n⚜ 幽月 @yuzuki_qg\n♦️ 限定居民\n♦️ 小豆 @rinnkaunn', START_DATE: '17 Nov 2026', END_DATE: '23 Nov 2026' };
 
 // ---------------------------------------------------------------- state
 const S = { published: null, draft: null, versions: [], work: null, rev: null, dirty: false, residents: [], queue: [], sync: null, fonts: [], images: [], view: 'residents', page: 'promo', copyPage: 'promo', layoutN: 2, preview: null };
-function markDirty() { S.dirty = true; renderBar(); }
+function markDirty() { S.dirty = true; renderBar(); if (S.view === 'pages') livePost(); }
 window.addEventListener('beforeunload', e => { if (S.dirty) { e.preventDefault(); e.returnValue = ''; } });
 
 // ---------------------------------------------------------------- login
@@ -330,10 +330,58 @@ function fieldRow(label, [lo, hi], value, onChange) {
   range.oninput = () => set(range.value); num.onchange = () => set(num.value);
   return h('div', { class: 'field' }, h('span', { text: label }), range, num);
 }
+// 即時預覽：內嵌公開製作器（?qgPreview=live），設定以 postMessage 傳入，不經伺服器
+const SERVER_RANGE = { size: [-60, 80], sp: [-30, 80], dx: [-400, 400], dy: [-400, 400] };
+let live = null;   // {page, frame, ready}
+function liveFrame(page) {
+  if (live && live.page === page) return live.frame;
+  const frame = h('iframe', { class: 'live-frame', title: '即時預覽', src: '/?qgPreview=live#' + page });
+  live = { page, frame, ready: false };
+  return frame;
+}
+function livePost() {
+  if (!live || !live.ready || !live.frame.contentWindow) return;
+  live.frame.contentWindow.postMessage({ type: 'qg-live-config', page: live.page, config: S.work }, location.origin);
+}
+window.addEventListener('message', e => {
+  if (e.origin !== location.origin || !live || e.source !== live.frame.contentWindow || !e.data) return;
+  if (e.data.type === 'qg-live-ready') { live.ready = true; livePost(); return; }
+  if (e.data.type !== 'qg-live-text' || e.data.page !== live.page || !S.work) return;
+  const def = PAGE_TEXT[live.page]; let changed = false;
+  for (const [key, b] of Object.entries(def.blocks)) {
+    const src = e.data.text[key]; if (!src) continue;
+    const before = JSON.stringify((S.work.pages[live.page]?.text || {})[key] || {});
+    const t = {};
+    if (b.fonts && src.font && src.font !== b.def) t.font = String(src.font);
+    if (b.range) for (const [f, [lo, hi]] of Object.entries(SERVER_RANGE)) {
+      const v = Math.max(lo, Math.min(hi, Math.round(+src[f] || 0)));
+      if (v) t[f] = v;
+    }
+    if (JSON.stringify(t) !== before) {
+      changed = true;
+      const all = ((S.work.pages[live.page] ||= { text: {} }).text ||= {});
+      if (Object.keys(t).length) all[key] = t; else delete all[key];
+    }
+  }
+  if (changed) { S.dirty = true; renderBar(); renderPageControls(); }
+});
+let renderPageControls = () => {};
+
 function viewPages() {
   const root = $('v-pages');
-  const chips = h('div', { class: 'chips' }, Object.entries(PAGE_TEXT).map(([k, p]) =>
-    h('button', { type: 'button', style: S.page === k ? 'background:var(--gold);color:#1a1020' : '', onclick: () => { S.page = k; viewPages(); } }, p.label)));
+  const frame = liveFrame(S.page);
+  const controls = h('div', { class: 'live-controls' });
+  renderPageControls = () => controls.replaceChildren(...pageControls());
+  renderPageControls();
+  root.replaceChildren(
+    h('div', { class: 'card' }, h('h2', { text: '頁面預設設定' }),
+      h('div', { class: 'chips' }, Object.entries(PAGE_TEXT).map(([k, p]) =>
+        h('button', { type: 'button', style: S.page === k ? 'background:var(--gold);color:#1a1020' : '', onclick: () => { S.page = k; viewPages(); } }, p.label))),
+      h('p', { class: 'muted', text: '左邊（手機為上方）是即時預覽，與公開製作器一樣可以直接拖動文字、用「文字微調」修改；右邊數值會同步更新。所有修改只存在草稿，發佈後才會套用到公開網站。' }),
+      h('div', { class: 'live-wrap' }, h('div', { class: 'live-pane' }, frame), controls)));
+  if (live.ready) livePost();
+}
+function pageControls() {
   const def = PAGE_TEXT[S.page];
   const blocks = Object.entries(def.blocks).map(([key, b]) => {
     const cur = (S.work.pages[S.page]?.text || {})[key] || {};
@@ -350,7 +398,7 @@ function viewPages() {
     if (b.range) for (const f of ['size', 'sp', 'dx', 'dy']) {
       parts.push(fieldRow(FIELD_LABEL[f], b.range[f], cur[f], v => { const t = pageText(S.page, key); if (v) t[f] = v; else delete t[f]; markDirty(); }));
     }
-    parts.push(h('button', { class: 'btn small ghost', type: 'button', onclick: () => { delete (S.work.pages[S.page].text || {})[key]; markDirty(); viewPages(); } }, '恢復此區塊內建設定'));
+    parts.push(h('button', { class: 'btn small ghost', type: 'button', onclick: () => { delete (S.work.pages[S.page].text || {})[key]; markDirty(); renderPageControls(); } }, '恢復此區塊內建設定'));
     return h('div', { class: 'block' }, parts);
   });
   const extra = [];
@@ -364,12 +412,11 @@ function viewPages() {
   const g = S.work.general ||= { openTime: '6:00pm ─ 10:00pm' };
   const ot = h('input', { type: 'text', value: g.openTime, maxlength: 60 });
   ot.oninput = () => { g.openTime = ot.value; markDirty(); };
-  root.replaceChildren(
-    h('div', { class: 'card' }, h('h2', { text: '頁面預設設定' }),
-      h('p', { class: 'muted', text: '數值是相對程式內建位置的微調（與製作器「文字微調」相同）。只影響新開始的製作；使用者已手動調整或從記錄還原的內容不會被覆蓋。' }),
-      chips, ...blocks, ...extra,
-      h('div', { class: 'block' }, h('h3', { text: '文案 {{TIME}} 預設開放時間' }), ot),
-      h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn', type: 'button', onclick: () => $('preview').click() }, '儲存草稿並預覽此頁'))));
+  return [
+    h('p', { class: 'muted', text: '數值是相對程式內建位置的微調（與製作器「文字微調」相同）。只影響新開始的製作；使用者已手動調整或從記錄還原的內容不會被覆蓋。' }),
+    ...blocks, ...extra,
+    h('div', { class: 'block' }, h('h3', { text: '文案 {{TIME}} 預設開放時間' }), ot),
+    h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn', type: 'button', onclick: () => $('preview').click() }, '儲存草稿並在新分頁預覽'))];
 }
 
 // ================================================================ 字體及文字

@@ -4,7 +4,7 @@ import { HttpError, json, errorResponse, readJson, readBytes } from './lib/http.
 import { login, logout, requireAdmin, audit, sessionCookie, hit } from './lib/auth.js';
 import { maybeSync, syncState, publicResident } from './lib/roster.js';
 import { inspectImage, inspectFont, LIMITS, EXT } from './lib/media.js';
-import { defaultConfig, validateConfig, SCHEMA_VERSION, ASSET_SLOTS, PAGES, COPY_FIELDS } from './lib/config.js';
+import { defaultConfig, validateConfig, SCHEMA_VERSION, ASSET_SLOTS, PAGES, COPY_FIELDS, upgradeConfig } from './lib/config.js';
 import { ulid, nowIso, sha256Hex, CATEGORIES } from './lib/util.js';
 import { clientIp } from './lib/http.js';
 
@@ -97,7 +97,7 @@ async function publicApi(request, env, url, ctx) {
   }
   if (path === 'config') {
     const row = await publishedRow(env.DB);
-    const body = row ? JSON.parse(row.body) : defaultConfig();
+    const body = row ? upgradeConfig(JSON.parse(row.body)) : defaultConfig();
     return json({ version: row ? row.version_id : 0, publishedAt: row ? row.published_at : null, config: body },
       200, { 'Cache-Control': 'no-cache' });
   }
@@ -254,8 +254,8 @@ async function adminApi(request, env, url) {
     const draft = await draftRow(env.DB);
     const versions = (await env.DB.prepare(`SELECT * FROM config_versions WHERE status != 'draft' ORDER BY version_id DESC LIMIT 30`).all()).results || [];
     return json({
-      published: { ...versionMeta(published), body: JSON.parse(published.body) },
-      draft: draft ? { ...versionMeta(draft), rev: draft.created_at, body: JSON.parse(draft.body) } : null,
+      published: { ...versionMeta(published), body: upgradeConfig(JSON.parse(published.body)) },
+      draft: draft ? { ...versionMeta(draft), rev: draft.created_at, body: upgradeConfig(JSON.parse(draft.body)) } : null,
       versions: versions.map(versionMeta),
       meta: { pages: PAGES, slots: ASSET_SLOTS, fields: COPY_FIELDS },
     });
@@ -267,7 +267,7 @@ async function adminApi(request, env, url) {
   }
   if (path === 'config/draft' && method === 'GET') {
     const draft = await draftRow(env.DB);
-    return json({ draft: draft ? { ...versionMeta(draft), body: JSON.parse(draft.body) } : null });
+    return json({ draft: draft ? { ...versionMeta(draft), body: upgradeConfig(JSON.parse(draft.body)) } : null });
   }
   if (path === 'config/draft' && method === 'PUT') {
     const body = await readJson(request);

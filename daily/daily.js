@@ -350,8 +350,7 @@ function render(t, final=false, noBg=false){
   drawLine('date', dateText(), t, final, 0.2);
   drawLine('time', timeText(), t, final, 0.26);
   // 大蝴蝶結：模糊淡入
-  const bp = prog(t, 0.85, 0.32);
-  layer('bow', final ? 1 : easeOut(bp), {blur: final ? 0 : Math.pow(1-bp, 1.5), scale: final ? 1 : 0.94 + 0.06*easeOut(bp)});
+  drawBow(t, final);
   // Queen's Garden 逐字出現
   if(final) layer('qg'); else typed('qg', QG_CUTS, t, 0.93, 0.075);
   // 居民
@@ -360,6 +359,19 @@ function render(t, final=false, noBg=false){
   let order = 0;
   list.forEach((r, i) => { if(catOf(r.cat).tag) drawTag(r, i, t, final, order++); });
   for(let i=list.length;i<MAX;i++) nameBounds[i] = null;
+}
+function drawBow(t, final){
+  const bp = prog(t, 0.85, 0.32);
+  layer('bow', final ? 1 : easeOut(bp), {blur: final ? 0 : Math.pow(1-bp, 1.5), scale: final ? 1 : 0.94 + 0.06*easeOut(bp)});
+}
+// 影片：蝴蝶結下半部超出卡片（1350），喺卡片以外補畫，令下方完整
+function videoOverlay(o, P, t){
+  if(!assetsReady || !img.bow) return;
+  o.save();
+  o.beginPath(); o.rect(0, P.y + P.h, o.canvas.width, o.canvas.height); o.clip();
+  o.translate(P.x, P.y); o.scale(P.w/W, P.h/H);
+  g = o;
+  try{ drawBow(t, false); } finally { g = cardCtx; o.restore(); }
 }
 const still = () => { if(!playing) render(0, true); };
 
@@ -905,7 +917,7 @@ $('dyMp4').addEventListener('click', async () => {
   try{
     const out = await window.qgVideo.record({
       bg:'video/daily-bg.jpg', card:cv, cardBg:img.bg, duration:DURATION, hold:0.08, place:VIDEO_PLACE,
-      frame:t => render(t, false, true),
+      frame:t => render(t, false, true), after:videoOverlay,
       progress:p => window.qgWorkflow?.progress('daily', Math.min(90, Math.round(6+84*p)), '正在製作影片'),
     });
     pendingVideo = {blob:out.blob, name:name+'.'+out.ext};

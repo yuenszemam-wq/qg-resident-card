@@ -14,6 +14,10 @@ const read = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { 
 const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const params = new URLSearchParams(location.search);
 const previewDraft = params.get('qgPreview') === 'draft';
+// 管理後台「頁面設定」內嵌的即時預覽：設定由後台 postMessage 傳入，製作器上的修改亦會傳回後台
+const previewLive = params.get('qgPreview') === 'live' && window.parent !== window;
+let liveResolve;
+const liveFirst = new Promise(r => { liveResolve = r; });
 
 let cached = read(CFG_KEY);
 let config = cached && cached.config || null;
@@ -23,6 +27,7 @@ const applied = read(APPLIED_KEY) || {};
 // ---------- 已發佈設定（預覽模式讀管理員草稿，不寫入快取） ----------
 function timeout(ms) { return new Promise(r => setTimeout(r, ms)); }
 async function fetchConfig() {
+  if (previewLive) return liveFirst;   // 等後台傳入設定（包括草稿的素材替換）
   if (previewDraft) {
     const r = await fetch('/api/admin/config/draft', {credentials:'same-origin'});
     if (!r.ok) throw new Error('draft');
@@ -37,7 +42,7 @@ async function fetchConfig() {
 const fresh = fetchConfig().then(d => {
   const changed = d.version !== version;
   config = d.config; version = d.version;
-  if (!previewDraft) write(CFG_KEY, {version, config, at:Date.now()});
+  if (!previewDraft && !previewLive) write(CFG_KEY, {version, config, at:Date.now()});
   if (changed) registerFonts();
   return true;
 }).catch(() => false);
@@ -86,14 +91,14 @@ function cardSnapshot(card) {
   }
   return JSON.stringify(out);
 }
-function applyCard(page) {
+function applyCard(page, force = false) {
   const card = window.qgCards && window.qgCards[page];
   const preset = config && config.pages && config.pages[page] && config.pages[page].text;
   if (!card || !card.text || !preset) return;
   const T = card.text;
   // 使用者自己改過（或從記錄還原）就不覆蓋；只在仍是內建值或上次自動套用的預設時更新
   const now = cardSnapshot(card);
-  if (T.changed() && applied[page] !== now) return;
+  if (!force && T.changed() && applied[page] !== now) return;
   const keys = T.items.map(([k]) => k);
   T.reset(keys);
   for (const k of keys) {
@@ -102,14 +107,14 @@ function applyCard(page) {
     for (const f of FIELDS) if (typeof p[f] === 'number') T.set(k, f, p[f]);
   }
   applied[page] = cardSnapshot(card);
-  write(APPLIED_KEY, applied);
+  if (!previewLive) write(APPLIED_KEY, applied);
   card.still && card.still();
   window.qgEditor?.sync(page);
 }
 let dailyApplied = false;
-function applyDaily() {
+function applyDaily(force = false) {
   const D = window.qgDaily, P = config && config.pages && config.pages.daily;
-  if (!D || !P || dailyApplied) return;
+  if (!D || !P || (dailyApplied && !force)) return;
   dailyApplied = true;
   for (const [n, l] of Object.entries(P.layouts || {})) {
     if (D.LAYOUTS[n] && Array.isArray(l.c) && l.c.length === +n) { D.LAYOUTS[n].k = l.k; D.LAYOUTS[n].c = l.c.map(p => [p[0], p[1]]); }
@@ -118,8 +123,75 @@ function applyDaily() {
   if (t.date?.font) D.state.font.date = t.date.font;
   if (t.name?.font) D.state.font.name = t.name.font;
   for (const k of ['date', 'time']) for (const f of FIELDS) if (typeof t[k]?.[f] === 'number') D.state.adj[k][f] = t[k][f];
+  if (force) {
+    for (const k of ['date', 'time']) for (const f of FIELDS) D.state.adj[k][f] = typeof t[k]?.[f] === 'number' ? t[k][f] : 0;
+    if (!t.date?.font) D.state.font.date = 'leckerli';
+    if (!t.name?.font) D.state.font.name = 'chiron';
+    if (P.times) { D.state.start = P.times.start; D.state.end = P.times.end; }
+    return;
+  }
   if (P.times && !D.started?.()) { D.state.start = P.times.start; D.state.end = P.times.end; }
 }
+
+// ---------- 後台即時預覽 ----------
+function liveText(page) {
+  if (page === 'daily') {
+    const D = window.qgDaily; if (!D) return null;
+    const out = {};
+    for (const k of ['date', 'time']) { out[k] = {}; for (const f of FIELDS) out[k][f] = D.state.adj[k][f] || 0; }
+    out.date.font = D.state.font.date; out.name = {font:D.state.font.name};
+    return out;
+  }
+  const card = window.qgCards && window.qgCards[page];
+  return card && card.text ? JSON.parse(cardSnapshot(card)) : null;
+}
+function liveRefresh(page) {
+  if (page === 'daily') {
+    const D = window.qgDaily; if (!D) return;
+    applyDaily(true);
+    for (const n of Object.keys(D.LAYOUTS)) {
+      const l = config.pages.daily.layouts?.[n];
+      if (l) { D.LAYOUTS[n].k = l.k; D.LAYOUTS[n].c = l.c.map(p => [p[0], p[1]]); }
+    }
+    D.state.res?.forEach(r => { r.pos = null; });
+    try { D.renderList?.(); } catch {}
+    D.still?.();
+    if (document.fonts) document.fonts.ready.then(() => D.still?.());
+  } else applyCard(page, true);
+}
+let liveBaseline = () => {};
+function setupLive() {
+  let page = null, last = '';
+  liveBaseline = () => {
+    if (!page) return;
+    if (page === 'daily' && !last) try { liveRefresh('daily'); } catch {}
+    last = JSON.stringify(liveText(page));
+  };
+  const post = msg => window.parent.postMessage(msg, location.origin);
+  window.addEventListener('message', e => {
+    if (e.origin !== location.origin || e.source !== window.parent || !e.data || e.data.type !== 'qg-live-config') return;
+    page = e.data.page;
+    if (liveResolve) {   // 第一次：作為製作器的「已發佈設定」，素材及預設照常套用
+      const r = liveResolve; liveResolve = null;
+      document.documentElement.classList.add('qgp-live');
+      r({version:'live', config:e.data.config});
+      return;
+    }
+    config = e.data.config;
+    registerFonts();
+    try { liveRefresh(page); } catch {}   // 素材未載入完成時畫面稍後會自行重畫
+    liveBaseline();
+  });
+  // 製作器上的修改（拖動文字、微調、字體）傳回後台
+  setInterval(() => {
+    if (!page || !config || liveResolve || !last) return;
+    const now = liveText(page); if (!now) return;
+    const s = JSON.stringify(now);
+    if (s !== last) { last = s; post({type:'qg-live-text', page, text:now}); }
+  }, 400);
+  post({type:'qg-live-ready'});
+}
+if (previewLive) setupLive();
 
 // ---------- 文案 ----------
 const COPY_FIELDS = ['NAME', 'IG', 'DATE', 'TIME', 'CATEGORY', 'RESIDENT_LIST', 'START_DATE', 'END_DATE'];
@@ -160,6 +232,36 @@ const fmtTime = v => {
   const m = /^(\d{1,2}):(\d{2})$/.exec(v || ''); if (!m) return '';
   const h = +m[1]; return `${h % 12 || 12}:${m[2]}${h < 12 ? 'am' : 'pm'}`;
 };
+// 每日文案：日期「13 / 7 𝕸𝖔𝖓」（星期用粗體哥德字母）
+const fraktur = t => [...t].map(c => {
+  const n = c.charCodeAt(0);
+  if (n >= 65 && n <= 90) return String.fromCodePoint(0x1D56C + n - 65);
+  if (n >= 97 && n <= 122) return String.fromCodePoint(0x1D586 + n - 97);
+  return c;
+}).join('');
+const dailyDate = v => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); if (!m) return '';
+  const dow = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12)).getUTCDay()];
+  return `${+m[3]} / ${+m[2]} ${fraktur(dow)}`;
+};
+// 居民名單：按分類分組，每行加分類符號；沒有的分類不顯示。IG 未有就按名字從名冊配對
+const DAILY_GROUPS = [['resident', '⚜', '出沒居民'], ['limited', '♦️', '限定居民'], ['shadow', '♣️', '影子精靈'], ['trial', '🔰', '試煉者']];
+const norm = v => String(v || '').trim().toLowerCase();
+function igFor(r) {
+  if (r.ig) return r.ig;
+  const hit = (roster.residents || []).find(x => norm(x.name) === norm(r.name));
+  return hit && hit.ig || '';
+}
+function dailyList(list) {
+  const out = [];
+  for (const [cat, sym, title] of DAILY_GROUPS) {
+    const rows = list.filter(r => r && r.name && (r.cat || 'resident') === cat);
+    if (!rows.length) continue;
+    out.push(`${sym} ${title}`);
+    for (const r of rows) { const ig = igFor(r); out.push(`${sym} ${r.name}${ig ? ' ' + ig : ''}`); }
+  }
+  return out.join('\n');
+}
 // 每週／每日更表：下載成功後彈出文案（由 qgWorkflow.finish 觸發，不改動繪圖引擎）
 const DONE = new Set(['圖片已準備好', '影片已完成並儲存', '影片已儲存']);
 function afterDownload(page, label) {
@@ -170,10 +272,8 @@ function afterDownload(page, label) {
   if (page === 'weekly') snap = {startDate:fmtDate($('wkStart')?.value), endDate:fmtDate($('wkEnd')?.value)};
   else if (page === 'daily') {
     const S = window.qgDaily?.state; if (!S) return;
-    const list = S.res.slice(0, S.count).filter(r => r.name);
-    const catName = {resident:'常駐', limited:'限定', shadow:'影子', trial:'試煉'};
-    snap = {date:fmtDate(S.date), time:[fmtTime(S.start), fmtTime(S.end)].filter(Boolean).join(' ─ '),
-      residentList:list.map(r => `${catName[r.cat] && r.cat !== 'resident' ? '【' + catName[r.cat] + '】' : ''}${r.name}${r.ig ? ' ' + r.ig : ''}`).join('\n')};
+    snap = {date:dailyDate(S.date), time:[fmtTime(S.start), fmtTime(S.end)].filter(Boolean).join(' ─ '),
+      residentList:dailyList(S.res.slice(0, S.count))};
   } else return;
   openPromo(snap, null, {page});
 }
@@ -297,11 +397,12 @@ function boot() {
   const D = window.qgDaily;
   if (D && !D.__qgPresets) {
     const start = D.start;
-    D.start = () => { applyDaily(); start(); };
+    D.start = () => { applyDaily(); start(); liveBaseline(); };
     D.__qgPresets = true;
   }
   ready.then(() => {
     for (const p of ['promo', 'shadow', 'weekly']) try { applyCard(p); } catch {}
+    liveBaseline();
     if (previewDraft) showPreviewBanner();
   });
 }

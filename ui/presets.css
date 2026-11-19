@@ -33,3 +33,6 @@
 .qgp-preview{position:sticky;top:0;z-index:50;background:#5b2a6e;color:#fff;font-size:13px;padding:8px 10px;border-radius:10px;margin-bottom:10px;text-align:center}
 .qgp-admin-link{text-align:center;font-size:12px;color:var(--muted);margin-top:28px}
 .qgp-admin-link a{color:var(--gold)}
+
+/* 管理後台即時預覽：只顯示目前頁面 */
+.qgp-live .tabs{display:none}

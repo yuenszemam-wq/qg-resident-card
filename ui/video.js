@@ -56,7 +56,7 @@ function mount(canvas) {
 
 // 合成一格：背景 + 卡片（卡片畫布暫時唔畫自己的背景）
 // place：卡片喺影片入面的位置（每日更表用：與加長背景逐點對齊），預設 = 放大到 1080 闊、上下置中
-async function compositor({bg, card, cardBg, frame, place}) {
+async function compositor({bg, card, cardBg, frame, place, after}) {
   const bgImg = await loadBg(bg);
   const out = document.createElement('canvas');
   out.width = OUT_W; out.height = OUT_H;
@@ -74,6 +74,8 @@ async function compositor({bg, card, cardBg, frame, place}) {
     o.imageSmoothingEnabled = true; o.imageSmoothingQuality = 'high';
     o.drawImage(bgImg, bx, by, bw, bh);
     o.drawImage(card, 0, 0, CW, CH, P.x, P.y, P.w, P.h);
+    // after：卡片以外的補充圖層（每日更表：蝴蝶結超出卡片的部分）
+    if (after) after(o, P, t);
     // 細預覽仍然顯示卡片原本背景
     if (cardBg) {
       cardCtx.save();
