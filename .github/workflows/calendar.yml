@@ -10,6 +10,7 @@ on:
       - 'daily/**'
       - 'fonts/**'
       - 'video/**'
+      - 'admin/**'
       - '.github/tests/test_qg_calendar.py'
       - '.github/workflows/calendar.yml'
 permissions:

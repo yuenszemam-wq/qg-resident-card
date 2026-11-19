@@ -1,6 +1,6 @@
 # Phase 5：居民資料同步＋統一管理後台｜設計及 migration 計劃
 
-狀態：**設計稿，等待批准新資源後才開始實作**（2026-11-19）
+狀態：**已實作，等待設定 Secrets 後合併部署**（2026-11-19）。資源批准：D1、R2、Google 服務帳戶已獲批准；管理權限按指示改用密碼（不用 Cloudflare Access）。
 
 ## 1. 現況檢查（2026-11-19）
 
@@ -32,11 +32,13 @@ Cloudflare Worker qg-resident-card（新增 worker/index.js，靜態資源維持
 - 靜態資源繼續由 `assets` 提供；Worker 只處理 `/api/*` 及 `/admin`（`run_worker_first: ["/api/*", "/admin*"]`），現有製作器載入方式不變。
 - 不使用 Cron。名冊在請求時檢查 5 分鐘快取（D1 `sync_state`），過期才向 Google 取，失敗時回傳最後成功的名單並標示「離線快取」。
 
-## 3. 管理權限
+## 3. 管理權限（已按指示改用管理密碼）
 
-1. Cloudflare Access 自建應用，路徑只包括 `qg-resident-card.yuenszemam.workers.dev/admin*` 及 `/api/admin/*`，政策＝指定管理員電郵（One-time PIN 或 Google 登入）。公開製作器不受影響。
-2. Worker 對每個 `/api/admin/*` 請求再驗證 `Cf-Access-Jwt-Assertion`（team domain 公鑰、`aud`、到期時間）及 `ADMIN_EMAILS` 白名單；缺少或無效一律 401/403，不依賴前端或隱藏網址。
-3. 不自行儲存任何密碼。
+1. 管理密碼只以 PBKDF2-SHA256（100,000 次）雜湊存於 Cloudflare Secret `ADMIN_PASSWORD_HASH`；repo、前端、D1 都沒有密碼原文。
+2. 登入成功發出隨機 session token（HttpOnly、Secure、SameSite=Strict、只限 `/api/admin`），D1 只存 token 的 SHA-256，12 小時到期，可登出。
+3. 同一 IP 15 分鐘內錯 5 次即鎖定；管理 API 每個 session 每 5 分鐘最多 300 次；上載每分鐘最多 30 次。
+4. 所有 `/api/admin/*` 寫入請求必須同源（Origin）並帶 `X-QG-Admin: 1`（防 CSRF）；`/admin/` 頁面本身是公開靜態檔，不代表任何權限。
+5. 更改密碼：`npm run hash-password` 產生新雜湊，再在 Cloudflare 更新 `ADMIN_PASSWORD_HASH`（舊 session 仍有效至到期，如需即時失效可清空 `admin_sessions`）。
 
 ## 4. Google Sheets 唯讀同步
 
@@ -109,3 +111,26 @@ Google 憑證選項：
 6. 素材管理
 7. 公開製作器選擇居民自動填入（限定宣傳、影子精靈、每週、每日）
 8. Playwright 回歸（Chromium＋WebKit iPhone）、PR、部署驗證
+
+## 11. 部署前設定（Cloudflare → Workers & Pages → qg-resident-card → Settings → Variables and Secrets）
+
+| Secret | 內容 |
+|---|---|
+| `ADMIN_PASSWORD_HASH` | `npm run hash-password` 的輸出（`pbkdf2-sha256$100000$…`） |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | 服務帳戶金鑰 JSON 全文；只需 Sheets API 唯讀，**試算表擁有人需把服務帳戶電郵加入為「檢視者」** |
+
+未設定時：公開製作器照常運作（沒有名冊）；管理後台登入顯示「管理密碼尚未設定」。
+
+## 12. 測試
+
+- `npm test`：Worker 單元測試（D1／R2／Google 以替身模擬）
+- `npx wrangler d1 migrations apply qg-resident-card-db --local && npx wrangler d1 execute qg-resident-card-db --local --file tests/seed-local.sql`，再 `npm run dev`，然後 `node tests/e2e_admin.mjs chromium`（環境變數 `QG_ADMIN_PASSWORD` 為 `.dev.vars` 對應的密碼）
+- CI：`.github/workflows/phase5.yml`（單元測試＋Chromium／WebKit 端對端）、原有 `calendar.yml`
+
+## 13. 已知限制（之後階段）
+
+- 文字預設目前接入：字型、大小、字距、左右、上下（即各製作器現有「文字微調」的同一套數值）。顏色、描邊、陰影、發光、對齊、最小／最大字級仍是各繪圖引擎內建值，未開放修改，以免改壞現有 Canva 對照效果。
+- 日期顯示格式未開放修改（保持現有日期邏輯，避免時區偏移）；每日更表預設開放時間可改。
+- 照片初始縮放／位置沿用各製作器現有記憶；相框位置可改的只有每日更表 1–6 人版型。
+- 上載的自訂字體在製作器下次載入時出現在字體清單。
+- 使用者用「全部重設」會回到程式內建值，而不是已發佈預設（重新整理頁面即再套用已發佈預設）。
