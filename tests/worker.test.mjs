@@ -305,6 +305,11 @@ test('session cookie is HttpOnly, Secure, SameSite=Strict, scoped to admin API',
   for (const part of ['HttpOnly', 'Secure', 'SameSite=Strict', 'Path=/api/admin']) assert.ok(c.includes(part), part);
   const row = env.DB.raw.prepare('SELECT token_hash FROM admin_sessions').get();
   assert.ok(!c.includes(row.token_hash), 'raw token is not stored');
+  // Only plain-http localhost (wrangler dev / CI WebKit) drops Secure.
+  const { sessionCookie } = await import('../worker/lib/auth.js');
+  assert.ok(!sessionCookie('t', 1, new URL('http://localhost:8787/api/admin/login')).includes('Secure'));
+  assert.ok(sessionCookie('t', 1, new URL('http://qg.example.com/api/admin/login')).includes('Secure'));
+  assert.ok(sessionCookie('t', 1, new URL('https://localhost/api/admin/login')).includes('Secure'));
 });
 
 // ------------------------------------------------------------- photos & media

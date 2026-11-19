@@ -50,8 +50,11 @@ function readCookie(request, name) {
   return '';
 }
 
-export function sessionCookie(token, maxAge) {
-  return `${COOKIE}=${token}; Path=/api/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
+/** Secure everywhere except plain-http localhost (wrangler dev / CI), where WebKit
+ *  refuses to store Secure cookies. Production is always https. */
+export function sessionCookie(token, maxAge, url = null) {
+  const local = url && url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname);
+  return `${COOKIE}=${token}; Path=/api/admin; HttpOnly;${local ? '' : ' Secure;'} SameSite=Strict; Max-Age=${maxAge}`;
 }
 
 /** Fixed-window counter in D1. Returns the count after increment. */

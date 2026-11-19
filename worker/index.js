@@ -142,11 +142,11 @@ async function adminApi(request, env, url) {
     if (origin && origin !== url.origin) throw new HttpError(403, 'bad_origin', '來源不符');
     const s = await login(request, env, await readJson(request, 4096));
     await audit(env, s.actor, 'login', null, {});
-    return json({ ok: true, actor: s.actor, expires: s.expires }, 200, { 'Set-Cookie': sessionCookie(s.token, s.maxAge) });
+    return json({ ok: true, actor: s.actor, expires: s.expires }, 200, { 'Set-Cookie': sessionCookie(s.token, s.maxAge, url) });
   }
   if (path === 'logout' && method === 'POST') {
     await logout(request, env);
-    return json({ ok: true }, 200, { 'Set-Cookie': sessionCookie('', 0) });
+    return json({ ok: true }, 200, { 'Set-Cookie': sessionCookie('', 0, url) });
   }
 
   const { actor } = await requireAdmin(request, env);
