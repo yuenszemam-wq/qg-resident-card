@@ -31,7 +31,7 @@
 版面及編輯器見上面「三個分頁共用介面」。
 
 - 相片：好似限定宣傳一樣自行上傳，按 Canva 相框形狀（`weekly/mask.png`）裁切，再蓋上珍珠框和徽章。
-- 從 Google Drive 選擇：「☁️ 從 Google Drive 選擇」列出 Drive 資料夾（`wrangler.jsonc` 的 `DRIVE_FOLDER_ID`）內的相片，按相片即載入。需要先在 `/admin` 登入（相片經 `/api/admin/drive/*` 讀取，不會公開）；資料夾要分享給 `GOOGLE_SERVICE_ACCOUNT_JSON` 的服務帳戶電郵（檢視者即可）。HEIC 等格式會改用 Drive 產生的 JPEG。
+- 從 Google Drive 選擇：「☁️ 從 Google Drive 選擇」列出 Drive 資料夾（`wrangler.jsonc` 的 `DRIVE_FOLDER_ID`）內的相片，按相片即載入。需要先在 `/admin` 登入（相片經 `/api/admin/drive/*` 讀取，不會公開）；資料夾要分享給 `GOOGLE_SERVICE_ACCOUNT_JSON` 的服務帳戶電郵（檢視者即可）。服務帳戶所屬的 Google Cloud 專案亦要啟用 **Google Drive API**（與 Sheets API 分開啟用）；未啟用時相片視窗會直接提示。HEIC 等格式會改用 Drive 產生的 JPEG。
   - 封存：每張相有「📦 封存」，封存後不會在「未使用」出現，可在「已封存」按「↩︎ 還原」。
   - 自動封存：勾選「下載更表後自動封存相片」（預設開啟，記在該裝置）時，用 Drive 相片成功下載圖片或影片後會自動封存該相片。
   - 封存狀態只記在 D1（`drive_photos`，`migrations/0003_drive_photos.sql`），程式只用唯讀權限，不會移動、改名或刪除 Drive 上的檔案。

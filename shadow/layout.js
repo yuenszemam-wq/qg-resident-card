@@ -1,8 +1,10 @@
 // Each template remembers layout only. Photos and publication details stay in their own workflow.
 function rememberLayout(template, state) {
   const key = 'qg.layout.' + template + '.v1';
+  // 管理後台內嵌的即時預覽（?qgPreview=live）：唔讀亦唔寫這部裝置記住的位置
+  const live = new URLSearchParams(location.search).get('qgPreview') === 'live' && window.parent !== window;
   let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(key)) || {}; } catch {}
+  if (!live) try { saved = JSON.parse(localStorage.getItem(key)) || {}; } catch {}
   function restore(target, source) {
     for (const field of Object.keys(target)) {
       const value = source?.[field];
@@ -19,6 +21,7 @@ function rememberLayout(template, state) {
     state.dy = Number(saved.dy) || 0;
   }
   function save() {
+    if (live) return;
     const next = {...saved, adj:state.adj, font:state.font};
     if (state.photo) Object.assign(next, {zoom:state.zoom, dx:state.dx, dy:state.dy});
     saved = next;

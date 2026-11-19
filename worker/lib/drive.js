@@ -33,9 +33,30 @@ async function driveFetch(env, cfg, url, fetchImpl) {
   return res;
 }
 
-function upstreamError(status, cfg) {
-  if (status === 403 || status === 404) {
-    return new HttpError(502, 'drive_no_access', `讀取不到 Google Drive 資料夾，請確認已把資料夾分享給服務帳戶 ${cfg.email}（檢視者即可）`);
+// Only Google's machine-readable reason codes are read from the error body; the body itself is never logged or returned.
+async function upstreamReason(res) {
+  try {
+    const e = (await res.json())?.error || {};
+    const reasons = [...(e.errors || []).map(x => x && x.reason), ...(e.details || []).map(x => x && x.reason), e.status];
+    return reasons.filter(r => typeof r === 'string').map(r => r.slice(0, 60));
+  } catch { return []; }
+}
+
+async function upstreamError(res, cfg) {
+  const status = res.status;
+  const reasons = status === 403 || status === 404 ? await upstreamReason(res) : [];
+  const project = (cfg.email || '').split('@')[1]?.split('.')[0] || '';
+  if (reasons.some(r => /^(SERVICE_DISABLED|accessNotConfigured)$/.test(r))) {
+    return new HttpError(502, 'drive_api_disabled', `Google Cloud 專案${project ? `「${project}」` : ''}未啟用 Google Drive API：請到 Google Cloud Console →「API 和服務」→「程式庫」搜尋 Google Drive API 並按「啟用」，等幾分鐘後再按重新整理`);
+  }
+  if (reasons.some(r => /^(insufficientPermissions|ACCESS_TOKEN_SCOPE_INSUFFICIENT)$/.test(r))) {
+    return new HttpError(502, 'drive_scope', 'Google 服務帳戶未有 Drive 唯讀權限，請檢查服務帳戶設定');
+  }
+  if (status === 404) {
+    return new HttpError(502, 'drive_no_access', `找不到 Google Drive 資料夾（DRIVE_FOLDER_ID），或資料夾未分享給服務帳戶 ${cfg.email}（檢視者即可）`);
+  }
+  if (status === 403) {
+    return new HttpError(502, 'drive_no_access', `Google Drive 拒絕存取（${reasons[0] || '403'}）：請確認資料夾已分享給服務帳戶 ${cfg.email}，以及專案已啟用 Google Drive API`);
   }
   return new HttpError(502, 'drive_error', `Google Drive 暫時未能回應（${status}），請稍後再試`);
 }
@@ -53,7 +74,7 @@ export async function listPhotos(env, fetchImpl = fetch) {
     });
     if (pageToken) params.set('pageToken', pageToken);
     const res = await driveFetch(env, cfg, `${API}?${params}`, fetchImpl);
-    if (!res.ok) throw upstreamError(res.status, cfg);
+    if (!res.ok) throw await upstreamError(res, cfg);
     const data = await res.json();
     for (const f of data.files || []) {
       if (!isDriveId(f.id)) continue;
@@ -75,7 +96,7 @@ async function photoMeta(env, cfg, id, fetchImpl) {
   const params = new URLSearchParams({ fields: 'id,mimeType,size,parents,trashed,thumbnailLink', supportsAllDrives: 'true' });
   const res = await driveFetch(env, cfg, `${API}/${id}?${params}`, fetchImpl);
   if (res.status === 404) throw new HttpError(404, 'not_found', '找不到相片');
-  if (!res.ok) throw upstreamError(res.status, cfg);
+  if (!res.ok) throw await upstreamError(res, cfg);
   const f = await res.json();
   if (f.trashed || !Array.isArray(f.parents) || !f.parents.includes(cfg.folder) || !String(f.mimeType || '').startsWith('image/')) {
     throw new HttpError(404, 'not_found', '找不到相片');
@@ -99,7 +120,7 @@ async function fetchThumb(env, cfg, f, size, fetchImpl) {
 async function fetchOriginal(env, cfg, f, fetchImpl) {
   if (Number(f.size) > MAX_PHOTO_BYTES) throw new HttpError(413, 'too_large', '相片太大（上限 25 MB）');
   const res = await driveFetch(env, cfg, `${API}/${f.id}?alt=media&supportsAllDrives=true`, fetchImpl);
-  if (!res.ok) throw upstreamError(res.status, cfg);
+  if (!res.ok) throw await upstreamError(res, cfg);
   return new Response(res.body, { headers: imageHeaders(f.mimeType, 3600) });
 }
 

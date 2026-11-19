@@ -140,7 +140,7 @@ $('discard').onclick = guard(async () => {
 // ---------------------------------------------------------------- navigation
 document.querySelectorAll('.nav button').forEach(b => b.onclick = () => show(b.dataset.v));
 function show(v) {
-  S.view = v;
+  S.view = v; document.body.dataset.view = v;
   document.querySelectorAll('.nav button').forEach(b => { const on = b.dataset.v === v; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
   document.querySelectorAll('.view').forEach(s => { s.hidden = s.id !== 'v-' + v; });
   ({ residents: viewResidents, pages: viewPages, fonts: viewFonts, assets: viewAssets, copy: viewCopy, versions: viewVersions })[v]();
@@ -357,12 +357,19 @@ function livePost() {
   if (!live || !live.ready || !live.frame.contentWindow) return;
   live.frame.contentWindow.postMessage({ type: 'qg-live-config', page: live.page, config: S.work }, location.origin);
 }
+function liveSend(msg) { if (live && live.ready && live.frame.contentWindow) live.frame.contentWindow.postMessage(msg, location.origin); }
+// 預覽上框住的文字＝下面正在微調的一項
+function liveSelect() { const k = S.textSel[S.page]; if (k) liveSend({ type: 'qg-live-select', key: k }); }
 window.addEventListener('message', e => {
   if (e.origin !== location.origin || !live || e.source !== live.frame.contentWindow || !e.data) return;
   if (e.data.type === 'qg-live-ready') {
-    live.ready = true; livePost();
+    live.ready = true; livePost(); setTimeout(liveSelect, 1500);
     // 月曆的內建公眾假期由預覽頁提供，載入後重畫設定面板
     if (live.page === 'calendar') setTimeout(() => { if (S.view === 'pages' && S.page === 'calendar') renderPageControls(); }, 800);
+    return;
+  }
+  if (e.data.type === 'qg-live-sel' && e.data.page === live.page && PAGE_TEXT[live.page]?.blocks[e.data.key]) {
+    if (S.textSel[live.page] !== e.data.key && S.page === live.page) { S.textSel[live.page] = e.data.key; renderPageControls(); }
     return;
   }
   if (e.data.type !== 'qg-live-text' || e.data.page !== live.page || !S.work) return;
@@ -388,21 +395,27 @@ window.addEventListener('message', e => {
 let renderPageControls = () => {};
 
 const PAGE_CHIPS = { ...Object.fromEntries(Object.entries(PAGE_TEXT).map(([k, p]) => [k, p.label])), calendar: 'QG 月曆' };
+// 手機版：上面只顯示成品圖（可以直接拖動文字），下面是與公開製作器相同的「文字微調」
 function viewPages() {
   const root = $('v-pages');
   const frame = liveFrame(S.page);
   const controls = h('div', { class: 'live-controls' });
   renderPageControls = () => controls.replaceChildren(...(S.page === 'calendar' ? calendarControls() : pageControls()));
   renderPageControls();
+  const pane = h('div', { class: 'live-pane' + (S.bigPreview ? ' big' : '') });
+  const sizeBtn = h('button', { class: 'btn small ghost', type: 'button', text: S.bigPreview ? '縮細預覽' : '放大預覽',
+    onclick: () => { S.bigPreview = !S.bigPreview; pane.classList.toggle('big', S.bigPreview); sizeBtn.textContent = S.bigPreview ? '縮細預覽' : '放大預覽'; } });
+  pane.append(frame, h('div', { class: 'live-tools' },
+    h('span', { class: 'muted grow', text: S.page === 'calendar' ? '預覽本月月曆' : '在圖上點選或拖動文字' }),
+    S.page === 'calendar' ? null : h('button', { class: 'btn small ghost', type: 'button', text: '▶ 播放', onclick: () => liveSend({ type: 'qg-live-play' }) }),
+    sizeBtn));
   root.replaceChildren(
-    h('div', { class: 'card' }, h('h2', { text: '頁面預設設定' }),
-      h('div', { class: 'chips big' }, Object.entries(PAGE_CHIPS).map(([k, l]) =>
-        h('button', { type: 'button', class: S.page === k ? 'on' : '', onclick: () => { S.page = k; viewPages(); } }, l))),
-      h('p', { class: 'muted', text: S.page === 'calendar'
-        ? '上方（電腦為左邊）是即時預覽。可改月份標題、星期、模板上的文字、日期顏色及公眾假期。所有修改只存在草稿，發佈後才會套用到公開網站。'
-        : '上方（電腦為左邊）是即時預覽，可以直接拖動文字；下面的「文字微調」與公開製作器相同，兩邊會同步。所有修改只存在草稿，發佈後才會套用到公開網站。' }),
-      h('div', { class: 'live-wrap' }, h('div', { class: 'live-pane' }, frame), controls)));
-  if (live.ready) livePost();
+    h('div', { class: 'card pages-card' },
+      h('div', { class: 'page-seg', role: 'tablist', 'aria-label': '頁面' }, Object.entries(PAGE_CHIPS).map(([k, l]) =>
+        h('button', { type: 'button', role: 'tab', class: S.page === k ? 'on' : '', 'aria-selected': String(S.page === k), onclick: () => { S.page = k; viewPages(); } }, l))),
+      h('div', { class: 'live-wrap' }, pane, controls),
+      h('p', { class: 'muted', text: '所有修改只存在草稿，發佈後才會套用到公開網站。預覽用示範名字，不會影響製作器。' })));
+  if (live.ready) { livePost(); liveSelect(); }
 }
 // 與公開製作器「文字微調」相同的一行：標籤、−、滑桿、＋、數值
 function tweakRow(label, [lo, hi], value, onChange) {
@@ -416,12 +429,12 @@ function tweakRow(label, [lo, hi], value, onChange) {
 function pageControls() {
   const def = PAGE_TEXT[S.page];
   const keys = Object.keys(def.blocks);
-  const sel = keys.includes(S.textSel[S.page]) ? S.textSel[S.page] : keys[0];
+  const sel = S.textSel[S.page] = keys.includes(S.textSel[S.page]) ? S.textSel[S.page] : keys[0];
   const b = def.blocks[sel];
   const cur = (S.work.pages[S.page]?.text || {})[sel] || {};
   const seg = h('div', { class: 'tw-seg', role: 'tablist', style: `grid-template-columns:repeat(${keys.length},1fr)` },
     keys.map(k => h('button', { type: 'button', role: 'tab', class: k === sel ? 'on' : '', 'aria-selected': String(k === sel),
-      onclick: () => { S.textSel[S.page] = k; renderPageControls(); } }, def.blocks[k].label.replace('（字體）', ''))));
+      onclick: () => { S.textSel[S.page] = k; renderPageControls(); liveSelect(); } }, def.blocks[k].label.replace('（字體）', ''))));
   const parts = [seg];
   if (b.fonts) {
     const fsel = h('select', { 'aria-label': b.label + '字體' },
@@ -451,7 +464,7 @@ function pageControls() {
   const ot = h('input', { type: 'text', value: g.openTime, maxlength: 60 });
   ot.oninput = () => { g.openTime = ot.value; markDirty(); };
   return [
-    h('div', { class: 'tw-panel' }, h('h3', { text: '✏️ 文字微調' }), ...parts,
+    h('div', { class: 'tw-panel tw-main' }, h('h3', { text: '✏️ 文字微調' }), ...parts,
       h('p', { class: 'muted', text: '數值是相對程式內建位置的微調。只影響新開始的製作；使用者已手動調整或從記錄還原的內容不會被覆蓋。' })),
     ...extra,
     h('div', { class: 'tw-panel' }, h('h3', { text: '文案 {{TIME}} 預設開放時間' }), ot),

@@ -220,6 +220,16 @@ test('drive: folder not shared gives a helpful message with the service account'
   assert.ok(!JSON.stringify(res.body).includes('forbidden'));
 });
 
+test('drive: Drive API not enabled is reported separately from sharing', async () => {
+  google.drive = { ...driveFiles(), apiDisabled: true }; env.DRIVE_FOLDER_ID = FOLDER;
+  const cookie = await loginCookie();
+  const res = await data(req('/api/admin/drive/photos', { cookie }));
+  assert.equal(res.status, 502);
+  assert.equal(res.body.error, 'drive_api_disabled');
+  assert.match(res.body.message, /Google Drive API/);
+  assert.ok(!JSON.stringify(res.body).includes('secret upstream text'));
+});
+
 test('drive: manual archive, auto-archive after download, restore; Drive itself untouched', async () => {
   google.drive = driveFiles(); env.DRIVE_FOLDER_ID = FOLDER;
   const cookie = await loginCookie();
