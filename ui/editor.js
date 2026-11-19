@@ -55,7 +55,13 @@ function register(cfg) {
   const segT = h('div', {class:'seg', role:'tablist'});
   segT.style.gridTemplateColumns = `repeat(${T.items.length},1fr)`;
   for (const [k, l] of T.items) segT.append(h('button', {type:'button', role:'tab', 'data-k':k, text:l}));
-  const font = h('select', {id:id+'Font', 'aria-label':'字體'});
+  // 字體：iPhone 原生選單唔可以顯示字款，改用自製面板，每行用該字體寫出現時文字
+  const fontName = h('span', {class:'t'});
+  const font = h('button', {type:'button', class:'ed-fontbtn', id:id+'Font', 'aria-haspopup':'dialog', 'aria-label':'字體'}, fontName, h('span', {class:'go', text:'⌄'}));
+  const sheetList = h('div', {class:'qg-fs-list', role:'listbox', 'aria-label':'字體'});
+  const sheetDone = h('button', {type:'button', class:'ed-done', id:id+'FontDone', text:'完成'});
+  const sheet = h('div', {class:'qg-fs', id:id+'FontSheet', hidden:true, role:'dialog', 'aria-modal':'true', 'aria-label':'揀字體'},
+    h('div', {class:'qg-fs-panel'}, h('div', {class:'qg-fs-head'}, h('strong', {text:'揀字體'}), h('span', {class:'qg-fs-hint', text:'撳一款即時套用'}), sheetDone), sheetList));
   const rows = h('div', {class:'ed-rows'});
   const ranges = {}, outs = {};
   for (const [f, l, mn, mx] of T.fields) {
@@ -68,13 +74,13 @@ function register(cfg) {
   const resetOne = h('button', {class:'small', type:'button', id:id+'ResetText'});
   const resetAll = h('button', {class:'small', type:'button', text:'全部重設'});
   const paneT = h('div', {'data-pane':'text', hidden:true}, tipT, segT,
-    h('label', {class:'ed-font'}, h('span', {text:'字體'}), font), rows,
+    h('div', {class:'ed-font'}, h('span', {text:'字體'}), font), rows,
     h('div', {class:'ed-foot'}, resetOne, resetAll));
 
   const el = h('div', {class:'editor qg-ed', id, hidden:true, role:'dialog', 'aria-modal':'true', 'aria-labelledby':id+'Title'},
     h('div', {class:'ed-head'}, title, play, done, exit),
     view,
-    h('div', {class:'ed-ctrl'}, h('div', {}, segM, paneP, paneT)));
+    h('div', {class:'ed-ctrl'}, h('div', {}, segM, paneP, paneT)), sheet);
   // 放在分頁內，令原本「記住位置」的事件監聽照樣生效
   (cfg.panel || document.body).append(el);
 
@@ -90,13 +96,34 @@ function register(cfg) {
   function syncText() {
     segT.querySelectorAll('button').forEach(b => { const on = b.dataset.k === sel; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
     for (const [f] of T.fields) { const v = T.get(sel, f); ranges[f].value = v; outs[f].textContent = v; }
-    if (font.dataset.k !== sel) {
-      font.replaceChildren(...T.fonts(sel).map(f => h('option', {value:f.id, text:f.label})));
-      font.dataset.k = sel;
-    }
-    font.value = T.font(sel);
+    const cur = T.fonts(sel).find(f => f.id === T.font(sel)) || T.fonts(sel)[0];
+    fontName.textContent = cur.label;
+    styleFont(fontName, cur, sel, 17);
+    if (!sheet.hidden) fillSheet();
     resetOne.textContent = '重設' + label(sel);
     tipT.textContent = T.has(sel) ? '可以直接在卡上拖動文字' : (T.emptyTip ? T.emptyTip(sel) : '未輸入' + label(sel) + '，先在上面填寫');
+  }
+  // 用字體資料設定預覽樣式（加粗字款用描邊模擬卡上效果）
+  function styleFont(el, f, k, px) {
+    if (!f || !f.fam) { el.style.fontFamily = ''; el.style.fontWeight = ''; el.style.webkitTextStroke = ''; return; }
+    el.style.fontFamily = `"${f.fam}",${f.fallback || '"PingFang TC","Noto Sans TC",sans-serif'}`;
+    el.style.fontWeight = f.w || 400;
+    el.style.webkitTextStroke = f.bold ? (f.bold * px).toFixed(2) + 'px currentColor' : '';
+  }
+  function fillSheet(load) {
+    const list = T.fonts(sel), sample = (T.sample && T.sample(sel)) || '範例文字 Abc 123', curId = T.font(sel);
+    sheetList.replaceChildren(...list.map(f => {
+      const on = f.id === curId;
+      const s = h('span', {class:'s', text:sample}); styleFont(s, f, sel, 26);
+      return h('button', {type:'button', role:'option', 'aria-selected':String(on), class:'qg-fs-item'+(on?' on':''), 'data-id':f.id},
+        h('span', {class:'n', text:(on ? '✓ ' : '') + f.label}), s);
+    }));
+    if (load) for (const f of list) {
+      if (!f.fam) continue;
+      // 中日文字體（Google Fonts）要先加 CSS，之後瀏覽器只下載用到的字
+      (f.gcss && typeof loadFontCss === 'function' ? loadFontCss(f.gcss) : Promise.resolve())
+        .then(() => document.fonts?.load(`${f.w || 400} 26px "${f.fam}"`, sample)).catch(() => {});
+    }
   }
   function syncMode() {
     segM.querySelectorAll('button').forEach(b => { const on = b.dataset.m === mode; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
@@ -164,6 +191,7 @@ function register(cfg) {
   }
   function close() {
     if (!opened) return;
+    sheet.hidden = true;
     opened = false; if (current === api) current = null;
     el.hidden = true;
     cancelAnimationFrame(raf);
@@ -181,7 +209,16 @@ function register(cfg) {
   fileIn.onchange = () => { const f = fileIn.files && fileIn.files[0]; fileIn.value = ''; if (f) P.load(f); };
   resetPos.onclick = () => { P.reset(); syncPhoto(); touch(); };
   rows.addEventListener('input', e => { const f = e.target.dataset.f; if (!f) return; T.set(sel, f, +e.target.value); outs[f].textContent = T.get(sel, f); touch(); });
-  font.onchange = () => { T.setFont(sel, font.value); touch(); };
+  font.onclick = () => {
+    fillSheet(true); sheet.hidden = false;
+    sheetList.querySelector('.on')?.scrollIntoView({block:'center'});
+  };
+  sheetDone.onclick = () => { sheet.hidden = true; font.focus(); };
+  sheet.onclick = e => { if (e.target === sheet) sheet.hidden = true; };
+  sheetList.onclick = e => {
+    const b = e.target.closest('[data-id]'); if (!b) return;
+    T.setFont(sel, b.dataset.id); touch(); syncText();
+  };
   resetOne.onclick = () => { T.reset([sel]); syncText(); touch(); };
   resetAll.onclick = () => { T.reset(T.items.map(i => i[0])); syncText(); touch(); };
   // − / ＋：按一下調 1（縮放 5%），按住會連續調
@@ -268,7 +305,11 @@ function register(cfg) {
 const resize = () => current?.size();
 window.addEventListener('resize', resize);
 window.visualViewport?.addEventListener('resize', resize);
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && current) current.close(); });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !current) return;
+  const fs = current.el.querySelector('.qg-fs:not([hidden])');
+  if (fs) fs.hidden = true; else current.close();
+});
 
 window.qgEditor = {
   register,

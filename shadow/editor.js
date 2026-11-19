@@ -333,7 +333,12 @@
     },
     text:{
       items:ITEMS, fields:FIELDS,
-      fonts:k=>[{id:'default',label:'原本字體（預設）'},...fontChoices(k).map(f=>({id:f.id,label:f.label.replace('（預設）','')}))],
+      fonts:k=>[
+        k==='name' ? {id:'default',label:'原本字體（預設）',fam:'Chiron GoRound TC',w:900,fallback:NAME_FALLBACK}
+                   : {id:'default',label:'原本字體（預設）',fam:'Kalam',w:700,fallback:FONT_HAND},
+        ...fontChoices(k).map(f=>({id:f.id,label:f.label.replace('（預設）',''),fam:f.fam,w:f.w,gcss:f.css,
+          bold:typeof f.bold==='object'?(f.bold[k]||0):(f.bold||0),fallback:k==='name'?NAME_FALLBACK:FONT_HAND}))],
+      sample:k=>{ const d=details(); return k==='date' ? (d.date ? 'Date: '+d.date : '') : d[k]; },
       font:k=>model.font[k]||'default',
       setFont(k,id){ model.font[k]=id; ensureFonts().then(still); },
       get:(k,f)=>adj[k][f],
