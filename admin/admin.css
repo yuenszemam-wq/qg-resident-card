@@ -31,9 +31,8 @@ textarea{min-height:300px;font-family:inherit;line-height:1.5;resize:vertical}
 .bar-info .dirty{color:var(--pink)}
 .bar-btns{display:flex;gap:6px;flex-wrap:wrap}
 .bar-btns .btn{flex:1;min-width:84px}
-.nav{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 0 8px;scrollbar-width:none}
-.nav::-webkit-scrollbar{display:none}
-.nav button{flex:none;font-size:14px;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);cursor:pointer}
+.nav{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 8px}
+.nav button{flex:1 1 auto;min-width:calc(33% - 6px);font-size:14px;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);cursor:pointer}
 .nav button.on{color:#1a1020;background:var(--gold);border-color:var(--gold);font-weight:600}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .grow{flex:1;min-width:0}
@@ -100,3 +99,44 @@ iframe.pv{width:100%;height:80vh;border:1px solid var(--line);border-radius:12px
   .grid2{grid-template-columns:1fr}
 }
 @media (min-width:760px){.modal{align-items:center}.sheet{border-radius:18px}}
+/* 居民：封存 */
+.res-act{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.res-act .row{flex-wrap:nowrap;gap:6px}
+.res.archived{opacity:.85;border-style:dashed}
+.res.archived img{filter:grayscale(.6)}
+details.arch>summary{cursor:pointer;list-style:none}
+details.arch>summary::-webkit-details-marker{display:none}
+details.arch>summary h2{display:inline;margin:0}
+details.arch>summary::after{content:'  ▾';color:var(--muted)}
+details.arch[open]>summary::after{content:'  ▴'}
+/* 頁面設定：與公開製作器「文字微調」相同的版面 */
+.chips.big button{font-size:14px;padding:7px 12px;color:var(--text)}
+.chips button.on{background:var(--gold);color:#1a1020;border-color:var(--gold);font-weight:600}
+.tw-panel{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:10px}
+.tw-panel h3{margin:0 0 8px}
+.tw-seg{display:grid;gap:2px;padding:3px;border-radius:12px;background:#120c1a;border:1px solid var(--line)}
+.tw-seg button{border:none;border-radius:9px;padding:9px 0;font-size:15px;background:transparent;color:var(--muted);cursor:pointer}
+.tw-seg button.on{background:var(--accent);color:#fff;font-weight:600}
+.tw-font{display:grid;grid-template-columns:3em 1fr;gap:8px;align-items:center;margin-top:10px}
+.tw-font span{font-size:14px;color:var(--muted)}
+.tw-font input[type=color]{width:100%;height:38px;border:1px solid var(--line);border-radius:10px;background:#120c1a;padding:2px}
+.tw-row{display:grid;grid-template-columns:3em 36px 1fr 36px 2.6em;gap:8px;align-items:center;margin-top:8px}
+.tw-row span{font-size:14px;color:var(--muted)}
+.tw-row input[type=range]{width:100%;accent-color:var(--accent)}
+.tw-row output{text-align:right;font-variant-numeric:tabular-nums;font-size:15px}
+.step{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:#120c1a;color:var(--text);font-size:20px;line-height:1;cursor:pointer;padding:0}
+.tw-foot{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+/* QG 月曆 */
+.wd-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.wd-grid input{padding:7px 2px;text-align:center;font-size:14px}
+.wd-grid input:disabled{opacity:.5}
+.cal-line{border-top:1px dashed var(--line);padding-top:8px;margin-top:8px}
+.cal-line textarea.short{min-height:0;height:auto;margin-top:4px;font-size:15px}
+.cal-line input[type=color]{width:44px;height:30px;border:1px solid var(--line);border-radius:8px;background:#120c1a;padding:1px}
+.hol-list{display:grid;gap:4px;margin:8px 0}
+.hol{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;background:#120c1a;border:1px solid var(--line);font-size:13px}
+.hol b{color:#e88fb4;width:3.2em;flex:none}
+.hol.off{opacity:.5}
+.hol.off b{color:var(--muted);text-decoration:line-through}
+input[type=date],input[type=time]{width:100%;font-size:16px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:#120c1a;color:var(--text)}
+.grid2 .tw-font{grid-template-columns:5.6em 1fr;margin-top:4px}

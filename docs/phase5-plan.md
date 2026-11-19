@@ -71,6 +71,7 @@ Cloudflare Worker qg-resident-card（新增 worker/index.js，靜態資源維持
 - `sync_state`：上次成功同步時間、錯誤狀態
 - `audit_log`：管理操作（誰、何時、做了甚麼、目標 id；不記錄內容本身）
 - `rate_limit`：管理 API 簡單計數
+- `resident_archive`（`migrations/0002_resident_archive.sql`，2026-11-19 新增）：封存居民（resident_id、archived 0/1、更新時間及管理員）。封存只會令 `/api/public/residents` 不回傳該居民；同步、照片、分類照舊。Worker 首次使用時亦會執行相同的 `CREATE TABLE IF NOT EXISTS`，所以未套用 migration 都不會出錯；仍建議在 Cloudflare 套用：`npx wrangler d1 migrations apply qg-resident-card-db --remote`。
 
 ## 7. 設定、版本與優先順序
 

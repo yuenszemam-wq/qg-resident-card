@@ -137,6 +137,26 @@ test('queue: admin resolves an IG change by merging, photo stays with the reside
   assert.equal(row.photo_asset_id, 'P');
 });
 
+test('archive: hidden from the public picker, kept in admin, survives sync, can be restored', async () => {
+  const cookie = await loginCookie();
+  const pub = async () => (await data(req('/api/public/residents'))).body.residents;
+  const bean = (await pub()).find(r => r.name === '小豆');
+  env.DB.raw.prepare(`UPDATE residents SET photo_asset_id = 'P' WHERE resident_id = ?`).run(bean.id);
+  assert.equal((await data(req(`/api/admin/residents/${bean.id}/archive`, { method: 'POST', cookie, body: { archived: 'yes' } }))).status, 422);
+  assert.equal((await data(req(`/api/admin/residents/${bean.id}/archive`, { method: 'POST', body: { archived: true } }))).status, 401);
+  const res = await data(req(`/api/admin/residents/${bean.id}/archive`, { method: 'POST', cookie, body: { archived: true } }));
+  assert.equal(res.status, 200);
+  assert.ok(!(await pub()).some(r => r.id === bean.id));
+  await data(req('/api/admin/sync', { method: 'POST', cookie }));
+  assert.ok(!(await pub()).some(r => r.id === bean.id), 'sync must not un-archive');
+  const admin = (await data(req('/api/admin/residents', { cookie }))).body.residents.find(r => r.id === bean.id);
+  assert.equal(admin.archived, true);
+  assert.equal(admin.photo, '/media/P');
+  await data(req(`/api/admin/residents/${bean.id}/archive`, { method: 'POST', cookie, body: { archived: false } }));
+  assert.ok((await pub()).some(r => r.id === bean.id && r.photo === '/media/P'));
+  assert.equal(env.DB.raw.prepare('SELECT COUNT(*) AS n FROM residents').get().n, 3);
+});
+
 // ------------------------------------------------------------- auth
 test('password hash verifies; wrong password rejected', async () => {
   assert.ok(await verifyPassword(PASSWORD, HASH));

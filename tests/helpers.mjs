@@ -1,6 +1,6 @@
 // Test doubles: D1 over node:sqlite, R2 over a Map, and a fake Google API.
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 class Stmt {
   constructor(db, sql, args = []) { this.db = db; this.sql = sql; this.args = args; }
@@ -16,7 +16,8 @@ class Stmt {
 
 export function makeD1() {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync(new URL('../migrations/0001_init.sql', import.meta.url), 'utf8'));
+  const dir = new URL('../migrations/', import.meta.url);
+  for (const f of readdirSync(dir).filter(f => f.endsWith('.sql')).sort()) db.exec(readFileSync(new URL(f, dir), 'utf8'));
   return {
     raw: db,
     prepare: sql => new Stmt(db, sql),

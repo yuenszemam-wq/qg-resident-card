@@ -68,7 +68,7 @@ const FIELD_INFO = { NAME: '居民名字', IG: 'Instagram', DATE: '日期', TIME
 const SAMPLE = { NAME: '幽月', IG: '@yuzuki_qg', DATE: '20 Nov 2026', TIME: '6:00pm ─ 10:00pm', CATEGORY: '常駐', RESIDENT_LIST: '⚜ 出沒居民\n⚜ 幽月 @yuzuki_qg\n♦️ 限定居民\n♦️ 小豆 @rinnkaunn', START_DATE: '17 Nov 2026', END_DATE: '23 Nov 2026' };
 
 // ---------------------------------------------------------------- state
-const S = { published: null, draft: null, versions: [], work: null, rev: null, dirty: false, residents: [], queue: [], sync: null, fonts: [], images: [], view: 'residents', page: 'promo', copyPage: 'promo', layoutN: 2, preview: null };
+const S = { published: null, draft: null, versions: [], work: null, rev: null, dirty: false, residents: [], queue: [], sync: null, fonts: [], images: [], view: 'residents', page: 'promo', textSel: {}, copyPage: 'promo', layoutN: 2, preview: null };
 function markDirty() { S.dirty = true; renderBar(); if (S.view === 'pages') livePost(); }
 window.addEventListener('beforeunload', e => { if (S.dirty) { e.preventDefault(); e.returnValue = ''; } });
 
@@ -121,7 +121,7 @@ async function saveDraft(summary) {
 $('saveDraft').onclick = guard(async () => { await saveDraft(); say('草稿已儲存（公開製作器未受影響）', 'ok'); });
 $('preview').onclick = guard(async () => {
   if (S.dirty || !S.draft) await saveDraft();
-  window.open('/?qgPreview=draft#' + (PAGE_TEXT[S.page] ? S.page : 'promo'), '_blank', 'noopener');
+  window.open('/?qgPreview=draft#' + (PAGE_TEXT[S.page] || S.page === 'calendar' ? S.page : 'promo'), '_blank', 'noopener');
   say('已在新分頁開啟草稿預覽（只在這部裝置，公開網站未受影響）', 'ok');
 });
 $('publish').onclick = guard(async () => {
@@ -199,32 +199,53 @@ function viewResidents() {
     })) : '';
   const search = h('input', { type: 'search', placeholder: '搜尋名字或 IG', value: resQuery, 'aria-label': '搜尋居民' });
   const list = h('div', { class: 'res-list' });
+  const archList = h('div', { class: 'res-list' });
+  const active = S.residents.filter(r => !r.archived), archived = S.residents.filter(r => r.archived);
+  const setArchived = (r, on) => guard(async () => {
+    if (on && !confirm(`封存「${r.name}」？\n公開製作器的居民選單不會再顯示這位居民。\nGoogle Sheets、照片及分類全部保留，可隨時在「已封存居民」還原。`)) return;
+    await api(`residents/${r.id}/archive`, { method: 'POST', body: { archived: on } });
+    await loadResidents(); viewResidents();
+    say(on ? `已封存「${r.name}」（公開選單即時隱藏）` : `已還原「${r.name}」到公開選單`, 'ok');
+  });
+  const row = r => {
+    const cat = h('select', { 'aria-label': r.name + ' 預設分類' }, Object.entries(CAT_LABEL).map(([k, v]) => h('option', { value: k, text: v })));
+    cat.value = r.category;
+    cat.onchange = guard(async () => {
+      try { await api('residents/' + r.id, { method: 'PATCH', body: { category: cat.value, version: r.version } }); }
+      catch (e) { cat.value = r.category; throw e; }
+      r.category = cat.value; r.version++; say(`${r.name} 的預設分類已改為「${CAT_LABEL[cat.value]}」（即時生效）`, 'ok');
+    });
+    return h('div', { class: 'res' + (r.archived ? ' archived' : '') },
+      r.photo ? h('img', { src: r.photo, alt: '', loading: 'lazy' }) : h('span', { class: 'ph', text: '👤' }),
+      h('div', { class: 't' }, h('b', { text: r.name || '（未命名）' }),
+        h('small', { text: `${r.ig || '沒有 IG'} · 更新 ${fmt(r.updatedAt)}` }),
+        r.archived ? h('span', { class: 'badge', text: `封存於 ${fmt(r.archivedAt)}${r.archivedBy ? ' · ' + r.archivedBy : ''}` }) : '',
+        r.status === 'missing' ? h('span', { class: 'badge warn', text: '已不在名冊' }) : r.status === 'manual' ? h('span', { class: 'badge', text: '人工建立' }) : '',
+        !r.photo ? h('span', { class: 'badge', text: '未有照片' }) : ''),
+      h('div', { class: 'res-act' },
+        r.archived ? '' : cat,
+        h('div', { class: 'row' },
+          h('button', { class: 'btn small', type: 'button', onclick: () => photoEditor(r) }, '照片'),
+          r.archived
+            ? h('button', { class: 'btn small primary', type: 'button', onclick: setArchived(r, false) }, '還原')
+            : h('button', { class: 'btn small danger', type: 'button', onclick: setArchived(r, true) }, '刪除'))));
+  };
+  const match = r => { const q = resQuery.toLowerCase().replace(/^@/, ''); return !q || r.name.toLowerCase().includes(q) || r.ig.toLowerCase().includes(q); };
   const draw = () => {
-    const q = resQuery.toLowerCase().replace(/^@/, '');
-    const rows = S.residents.filter(r => !q || r.name.toLowerCase().includes(q) || r.ig.toLowerCase().includes(q));
-    list.replaceChildren(...rows.map(r => {
-      const cat = h('select', { 'aria-label': r.name + ' 預設分類' }, Object.entries(CAT_LABEL).map(([k, v]) => h('option', { value: k, text: v })));
-      cat.value = r.category;
-      cat.onchange = guard(async () => {
-        try { await api('residents/' + r.id, { method: 'PATCH', body: { category: cat.value, version: r.version } }); }
-        catch (e) { cat.value = r.category; throw e; }
-        r.category = cat.value; r.version++; say(`${r.name} 的預設分類已改為「${CAT_LABEL[cat.value]}」（即時生效）`, 'ok');
-      });
-      return h('div', { class: 'res' },
-        r.photo ? h('img', { src: r.photo, alt: '', loading: 'lazy' }) : h('span', { class: 'ph', text: '👤' }),
-        h('div', { class: 't' }, h('b', { text: r.name || '（未命名）' }),
-          h('small', { text: `${r.ig || '沒有 IG'} · 更新 ${fmt(r.updatedAt)}` }),
-          r.status === 'missing' ? h('span', { class: 'badge warn', text: '已不在名冊' }) : r.status === 'manual' ? h('span', { class: 'badge', text: '人工建立' }) : '',
-          !r.photo ? h('span', { class: 'badge', text: '未有照片' }) : ''),
-        cat,
-        h('button', { class: 'btn small', type: 'button', onclick: () => photoEditor(r) }, '照片'));
-    }));
-    if (!rows.length) list.append(h('p', { class: 'muted', text: S.residents.length ? '找不到符合的居民' : '未有居民資料。請先完成 Google 服務帳戶設定並按「立即同步」。' }));
+    const rows = active.filter(match);
+    list.replaceChildren(...rows.map(row));
+    if (!rows.length) list.append(h('p', { class: 'muted', text: active.length ? '找不到符合的居民' : S.residents.length ? '所有居民都已封存' : '未有居民資料。請先完成 Google 服務帳戶設定並按「立即同步」。' }));
+    const arows = archived.filter(match);
+    archList.replaceChildren(...arows.map(row));
+    if (!arows.length) archList.append(h('p', { class: 'muted', text: archived.length ? '找不到符合的已封存居民' : '未有已封存的居民' }));
   };
   search.oninput = () => { resQuery = search.value.trim(); draw(); };
   draw();
-  root.replaceChildren(syncCard, queue, h('div', { class: 'card' }, h('h2', { text: `居民（${S.residents.length}）` }),
-    h('p', { class: 'muted', text: '名字及 IG 來自 Google Sheets；預設分類及照片在這裡設定，修改後公開製作器即時使用。' }), search, list));
+  root.replaceChildren(syncCard, queue, h('div', { class: 'card' }, h('h2', { text: `居民（${active.length}）` }),
+    h('p', { class: 'muted', text: '名字及 IG 來自 Google Sheets；預設分類及照片在這裡設定，修改後公開製作器即時使用。「刪除」只會封存：公開製作器的選單不再顯示，不會改動 Google Sheets，照片亦會保留。' }), search, list),
+    h('details', { class: 'card arch', open: !!archived.length && !!resQuery },
+      h('summary', {}, h('h2', { text: `🗄️ 已封存居民（${archived.length}）` })),
+      h('p', { class: 'muted', text: '這些居民仍會跟 Google Sheets 同步，但不會在公開製作器出現。按「還原」即可放回選單。' }), archList));
 }
 
 // 照片：裁切（3:4）、縮放、保存、版本還原
@@ -323,13 +344,6 @@ function photoEditor(r) {
 // ================================================================ 頁面設定
 const pageText = (page, key) => ((S.work.pages[page] ||= { text: {} }).text ||= {})[key] ||= {};
 function customFonts(role) { return (S.work.fonts || []).filter(f => f.roles.includes(role)).map(f => [f.id, f.label + '（自訂）']); }
-function fieldRow(label, [lo, hi], value, onChange) {
-  const range = h('input', { type: 'range', min: lo, max: hi, step: 1, value: value ?? 0, 'aria-label': label });
-  const num = h('input', { type: 'number', min: lo, max: hi, step: 1, value: value ?? 0, 'aria-label': label + '數值' });
-  const set = v => { v = Math.max(lo, Math.min(hi, Math.round(+v || 0))); range.value = num.value = v; onChange(v); };
-  range.oninput = () => set(range.value); num.onchange = () => set(num.value);
-  return h('div', { class: 'field' }, h('span', { text: label }), range, num);
-}
 // 即時預覽：內嵌公開製作器（?qgPreview=live），設定以 postMessage 傳入，不經伺服器
 const SERVER_RANGE = { size: [-60, 80], sp: [-30, 80], dx: [-400, 400], dy: [-400, 400] };
 let live = null;   // {page, frame, ready}
@@ -345,9 +359,15 @@ function livePost() {
 }
 window.addEventListener('message', e => {
   if (e.origin !== location.origin || !live || e.source !== live.frame.contentWindow || !e.data) return;
-  if (e.data.type === 'qg-live-ready') { live.ready = true; livePost(); return; }
+  if (e.data.type === 'qg-live-ready') {
+    live.ready = true; livePost();
+    // 月曆的內建公眾假期由預覽頁提供，載入後重畫設定面板
+    if (live.page === 'calendar') setTimeout(() => { if (S.view === 'pages' && S.page === 'calendar') renderPageControls(); }, 800);
+    return;
+  }
   if (e.data.type !== 'qg-live-text' || e.data.page !== live.page || !S.work) return;
-  const def = PAGE_TEXT[live.page]; let changed = false;
+  const def = PAGE_TEXT[live.page]; if (!def) return;
+  let changed = false;
   for (const [key, b] of Object.entries(def.blocks)) {
     const src = e.data.text[key]; if (!src) continue;
     const before = JSON.stringify((S.work.pages[live.page]?.text || {})[key] || {});
@@ -367,56 +387,176 @@ window.addEventListener('message', e => {
 });
 let renderPageControls = () => {};
 
+const PAGE_CHIPS = { ...Object.fromEntries(Object.entries(PAGE_TEXT).map(([k, p]) => [k, p.label])), calendar: 'QG 月曆' };
 function viewPages() {
   const root = $('v-pages');
   const frame = liveFrame(S.page);
   const controls = h('div', { class: 'live-controls' });
-  renderPageControls = () => controls.replaceChildren(...pageControls());
+  renderPageControls = () => controls.replaceChildren(...(S.page === 'calendar' ? calendarControls() : pageControls()));
   renderPageControls();
   root.replaceChildren(
     h('div', { class: 'card' }, h('h2', { text: '頁面預設設定' }),
-      h('div', { class: 'chips' }, Object.entries(PAGE_TEXT).map(([k, p]) =>
-        h('button', { type: 'button', style: S.page === k ? 'background:var(--gold);color:#1a1020' : '', onclick: () => { S.page = k; viewPages(); } }, p.label))),
-      h('p', { class: 'muted', text: '左邊（手機為上方）是即時預覽，與公開製作器一樣可以直接拖動文字、用「文字微調」修改；右邊數值會同步更新。所有修改只存在草稿，發佈後才會套用到公開網站。' }),
+      h('div', { class: 'chips big' }, Object.entries(PAGE_CHIPS).map(([k, l]) =>
+        h('button', { type: 'button', class: S.page === k ? 'on' : '', onclick: () => { S.page = k; viewPages(); } }, l))),
+      h('p', { class: 'muted', text: S.page === 'calendar'
+        ? '上方（電腦為左邊）是即時預覽。可改月份標題、星期、模板上的文字、日期顏色及公眾假期。所有修改只存在草稿，發佈後才會套用到公開網站。'
+        : '上方（電腦為左邊）是即時預覽，可以直接拖動文字；下面的「文字微調」與公開製作器相同，兩邊會同步。所有修改只存在草稿，發佈後才會套用到公開網站。' }),
       h('div', { class: 'live-wrap' }, h('div', { class: 'live-pane' }, frame), controls)));
   if (live.ready) livePost();
 }
+// 與公開製作器「文字微調」相同的一行：標籤、−、滑桿、＋、數值
+function tweakRow(label, [lo, hi], value, onChange) {
+  const range = h('input', { type: 'range', min: lo, max: hi, step: 1, value: value ?? 0, 'aria-label': label });
+  const out = h('output', { text: String(value ?? 0) });
+  const set = v => { v = Math.max(lo, Math.min(hi, Math.round(+v || 0))); range.value = v; out.textContent = v; onChange(v); };
+  const step = d => h('button', { class: 'step', type: 'button', 'aria-label': label + (d < 0 ? '減少' : '增加'), text: d < 0 ? '−' : '+', onclick: () => set(+range.value + d) });
+  range.oninput = () => set(range.value);
+  return h('div', { class: 'tw-row' }, h('span', { text: label }), step(-1), range, step(1), out);
+}
 function pageControls() {
   const def = PAGE_TEXT[S.page];
-  const blocks = Object.entries(def.blocks).map(([key, b]) => {
-    const cur = (S.work.pages[S.page]?.text || {})[key] || {};
-    const parts = [h('h3', { text: b.label })];
-    if (b.fonts) {
-      const sel = h('select', { 'aria-label': b.label + '字體' },
-        h('option', { value: '', text: '（沿用程式內建預設）' }),
-        b.fonts.map(([id, label]) => h('option', { value: id, text: label })),
-        customFonts(b.role).map(([id, label]) => h('option', { value: id, text: label })));
-      sel.value = cur.font || '';
-      sel.onchange = () => { const t = pageText(S.page, key); if (sel.value) t.font = sel.value; else delete t.font; markDirty(); };
-      parts.push(h('label', {}, '預設字體', sel));
-    }
-    if (b.range) for (const f of ['size', 'sp', 'dx', 'dy']) {
-      parts.push(fieldRow(FIELD_LABEL[f], b.range[f], cur[f], v => { const t = pageText(S.page, key); if (v) t[f] = v; else delete t[f]; markDirty(); }));
-    }
-    parts.push(h('button', { class: 'btn small ghost', type: 'button', onclick: () => { delete (S.work.pages[S.page].text || {})[key]; markDirty(); renderPageControls(); } }, '恢復此區塊內建設定'));
-    return h('div', { class: 'block' }, parts);
-  });
+  const keys = Object.keys(def.blocks);
+  const sel = keys.includes(S.textSel[S.page]) ? S.textSel[S.page] : keys[0];
+  const b = def.blocks[sel];
+  const cur = (S.work.pages[S.page]?.text || {})[sel] || {};
+  const seg = h('div', { class: 'tw-seg', role: 'tablist', style: `grid-template-columns:repeat(${keys.length},1fr)` },
+    keys.map(k => h('button', { type: 'button', role: 'tab', class: k === sel ? 'on' : '', 'aria-selected': String(k === sel),
+      onclick: () => { S.textSel[S.page] = k; renderPageControls(); } }, def.blocks[k].label.replace('（字體）', ''))));
+  const parts = [seg];
+  if (b.fonts) {
+    const fsel = h('select', { 'aria-label': b.label + '字體' },
+      h('option', { value: '', text: '（沿用程式內建預設）' }),
+      b.fonts.map(([id, label]) => h('option', { value: id, text: label })),
+      customFonts(b.role).map(([id, label]) => h('option', { value: id, text: label })));
+    fsel.value = cur.font || '';
+    fsel.onchange = () => { const t = pageText(S.page, sel); if (fsel.value) t.font = fsel.value; else delete t.font; markDirty(); };
+    parts.push(h('div', { class: 'tw-font' }, h('span', { text: '字體' }), fsel));
+  }
+  if (b.range) for (const f of ['size', 'sp', 'dx', 'dy']) {
+    parts.push(tweakRow(FIELD_LABEL[f], b.range[f], cur[f], v => { const t = pageText(S.page, sel); if (v) t[f] = v; else delete t[f]; markDirty(); }));
+  } else parts.push(h('p', { class: 'muted', text: '這一項只設定字體，位置跟隨版型。' }));
+  const resetKeys = ks => { const t = S.work.pages[S.page].text || {}; ks.forEach(k => delete t[k]); markDirty(); renderPageControls(); };
+  parts.push(h('div', { class: 'tw-foot' },
+    h('button', { class: 'btn', type: 'button', onclick: () => resetKeys([sel]) }, '重設' + b.label.replace('（字體）', '')),
+    h('button', { class: 'btn', type: 'button', onclick: () => resetKeys(keys) }, '全部重設')));
   const extra = [];
   if (S.page === 'daily') {
     const t = S.work.pages.daily.times ||= { start: '18:00', end: '22:00' };
     const st = h('input', { type: 'time', value: t.start, step: 300 }), en = h('input', { type: 'time', value: t.end, step: 300 });
     st.onchange = () => { t.start = st.value || '18:00'; markDirty(); }; en.onchange = () => { t.end = en.value || '22:00'; markDirty(); };
-    extra.push(h('div', { class: 'block' }, h('h3', { text: '預設開放時間' }), h('div', { class: 'grid2' }, h('label', {}, '開始', st), h('label', {}, '結束', en)),
+    extra.push(h('div', { class: 'tw-panel' }, h('h3', { text: '預設開放時間' }), h('div', { class: 'grid2' }, h('label', {}, '開始', st), h('label', {}, '結束', en)),
       h('p', { class: 'muted', text: '日期仍然使用原生日期選擇器；這裡只改預設值，不改日期邏輯。' })));
   }
   const g = S.work.general ||= { openTime: '6:00pm ─ 10:00pm' };
   const ot = h('input', { type: 'text', value: g.openTime, maxlength: 60 });
   ot.oninput = () => { g.openTime = ot.value; markDirty(); };
   return [
-    h('p', { class: 'muted', text: '數值是相對程式內建位置的微調（與製作器「文字微調」相同）。只影響新開始的製作；使用者已手動調整或從記錄還原的內容不會被覆蓋。' }),
-    ...blocks, ...extra,
-    h('div', { class: 'block' }, h('h3', { text: '文案 {{TIME}} 預設開放時間' }), ot),
+    h('div', { class: 'tw-panel' }, h('h3', { text: '✏️ 文字微調' }), ...parts,
+      h('p', { class: 'muted', text: '數值是相對程式內建位置的微調。只影響新開始的製作；使用者已手動調整或從記錄還原的內容不會被覆蓋。' })),
+    ...extra,
+    h('div', { class: 'tw-panel' }, h('h3', { text: '文案 {{TIME}} 預設開放時間' }), ot),
     h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn', type: 'button', onclick: () => $('preview').click() }, '儲存草稿並在新分頁預覽'))];
+}
+
+// ---------------------------------------------------------------- QG 月曆
+const CAL_LINES = [['legend', '皇冠圖例（特別活動日）'], ['addrTitle', '入口標題'], ['addr', '地址'], ['hoursTitle', '開放時間標題'],
+  ['hours', '開放時間'], ['hoursNote', '開放時間備註'], ['note1', '右邊第一項（可換行）'], ['note2', '右邊第二項（可換行）']];
+const CAL_TEMPLATE_TEXT = { legend: '特別活動日', addrTitle: "Queen's Garden | 異世界入口", addr: '旺角•西洋菜街 遠景大廈3樓H2室', hoursTitle: '異世界開放時間',
+  hours: '星期一至日 6:00pm ── 10:00pm', hoursNote: '（部份日子為特別開放時間，詳情請留意公告）', note1: '日常最低消費為一個冒險\n套餐 88魔力',
+  note2: '開放時間和出沒居民或\n因異世界狀態變動，\n請以《異世界居民出沒啟示錄》\n公告為準' };
+const CAL_COLORS = [['weekday', '平日日期', '#ffffff'], ['weekend', '星期六、日', '#c294af'], ['holiday', '公眾假期', '#e88fb4'], ['marked', '皇冠上的日期', '#33202c']];
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function calendarControls() {
+  const P = S.work.pages.calendar ||= { text: {} };
+  const cal = P.cal ||= {};
+  const tidy = () => { for (const k of ['colors', 'lines', 'extraHolidays']) if (cal[k] && !Object.keys(cal[k]).length) delete cal[k]; if (cal.offHolidays && !cal.offHolidays.length) delete cal.offHolidays; markDirty(); };
+  const color = (value, def, onChange) => {
+    const c = h('input', { type: 'color', value: value || def });
+    c.oninput = () => onChange(c.value.toLowerCase() === def ? null : c.value);
+    return c;
+  };
+  // 標題
+  const title = h('input', { type: 'text', value: cal.title ?? '', placeholder: '{{MONTH}} {{YEAR}}（預設，例如 November 2026）', maxlength: 60 });
+  title.oninput = () => { if (title.value.trim()) cal.title = title.value; else delete cal.title; tidy(); };
+  const titlePanel = h('div', { class: 'tw-panel' }, h('h3', { text: '月份標題' }),
+    h('label', {}, '標題文字（{{MONTH}} 英文月份、{{MONTH_ZH}} 中文月份、{{M}} 數字月份、{{YEAR}} 年份）', title),
+    h('div', { class: 'chips' }, ['{{MONTH}} {{YEAR}}', '{{YEAR}}年{{M}}月', '{{MONTH_ZH}} {{YEAR}}'].map(t =>
+      h('button', { type: 'button', onclick: () => { title.value = t; title.oninput(); } }, t))),
+    h('div', { class: 'tw-font' }, h('span', { text: '顏色' }), color(cal.titleColor, '#c799b3', v => { if (v) cal.titleColor = v; else delete cal.titleColor; tidy(); })),
+    tweakRow('大小', [-60, 40], cal.titleSize, v => { if (v) cal.titleSize = v; else delete cal.titleSize; tidy(); }),
+    tweakRow('上下', [-120, 120], cal.titleDy, v => { if (v) cal.titleDy = v; else delete cal.titleDy; tidy(); }));
+  // 星期
+  const wdOn = h('input', { type: 'checkbox', checked: Array.isArray(cal.weekdays) });
+  const wdInputs = WEEKDAYS.map((d, i) => {
+    const inp = h('input', { type: 'text', value: (cal.weekdays || WEEKDAYS)[i], maxlength: 8, 'aria-label': d, disabled: !cal.weekdays });
+    inp.oninput = () => { if (cal.weekdays) { cal.weekdays[i] = inp.value; tidy(); } };
+    return inp;
+  });
+  wdOn.onchange = () => { if (wdOn.checked) cal.weekdays = wdInputs.map((x, i) => x.value || WEEKDAYS[i]); else delete cal.weekdays; wdInputs.forEach(x => { x.disabled = !wdOn.checked; }); tidy(); };
+  const wdPanel = h('div', { class: 'tw-panel' }, h('h3', { text: '星期' }),
+    h('label', { class: 'row' }, wdOn, ' 自訂星期名稱（不勾選＝保留模板原圖字樣）'), h('div', { class: 'wd-grid' }, wdInputs));
+  // 模板文字
+  const lines = () => (cal.lines ||= {});
+  const linePanel = h('div', { class: 'tw-panel' }, h('h3', { text: '模板上的文字' }),
+    h('p', { class: 'muted', text: '留空＝保留模板原圖。填寫後會先用背景色蓋住原有文字再寫上新文字；太長會自動縮細。按 Enter 換行。' }),
+    CAL_LINES.map(([k, label]) => {
+      const ta = h('textarea', { class: 'short', rows: CAL_TEMPLATE_TEXT[k].includes('\n') ? 3 : 1, placeholder: CAL_TEMPLATE_TEXT[k], maxlength: 120 });
+      ta.value = lines()[k] || '';
+      ta.oninput = () => { if (ta.value.trim()) lines()[k] = ta.value; else delete lines()[k]; tidy(); };
+      const c = color(lines()[k + 'Color'], '#ffffff', v => { if (v) lines()[k + 'Color'] = v; else delete lines()[k + 'Color']; tidy(); });
+      return h('div', { class: 'cal-line' }, h('div', { class: 'row' }, h('span', { class: 'grow muted', text: label }),
+        h('button', { class: 'btn small ghost', type: 'button', onclick: () => { ta.value = CAL_TEMPLATE_TEXT[k]; ta.oninput(); ta.focus(); } }, '填入原文'),
+        h('label', { class: 'row', style: 'margin:0' }, '顏色', c)), ta);
+    }));
+  // 顏色
+  const colors = () => (cal.colors ||= {});
+  const colorPanel = h('div', { class: 'tw-panel' }, h('h3', { text: '日期顏色' }),
+    h('div', { class: 'grid2' }, CAL_COLORS.map(([k, label, def]) => h('div', { class: 'tw-font' }, h('span', { text: label }),
+      color(colors()[k], def, v => { if (v) colors()[k] = v; else delete colors()[k]; tidy(); })))),
+    h('button', { class: 'btn small ghost', type: 'button', onclick: () => { delete cal.colors; tidy(); renderPageControls(); } }, '恢復預設顏色'));
+  // 公眾假期
+  const showH = h('input', { type: 'checkbox', checked: cal.showHolidays !== false });
+  showH.onchange = () => { if (showH.checked) delete cal.showHolidays; else cal.showHolidays = false; tidy(); };
+  const yearSel = h('select', { 'aria-label': '年份' });
+  const builtIn = live && live.frame.contentWindow && live.frame.contentWindow.qgCalendar ? live.frame.contentWindow.qgCalendar.HK_HOLIDAYS : null;
+  const years = [...new Set([...Object.keys(builtIn || {}), ...Object.keys(cal.extraHolidays || {}).map(d => d.slice(0, 4)), String(new Date().getFullYear())])].sort();
+  years.forEach(y => yearSel.append(h('option', { value: y, text: y + ' 年' })));
+  yearSel.value = S.calYear && years.includes(S.calYear) ? S.calYear : String(new Date().getFullYear());
+  const hList = h('div', { class: 'hol-list' });
+  const drawH = () => {
+    S.calYear = yearSel.value;
+    const y = yearSel.value, off = new Set(cal.offHolidays || []);
+    const rows = [...Object.entries((builtIn || {})[y] || {}).map(([md, n]) => [`${y}-${md}`, n, 'gov']),
+      ...Object.entries(cal.extraHolidays || {}).filter(([d]) => d.startsWith(y + '-')).map(([d, n]) => [d, n, 'custom'])].sort((a, b) => a[0].localeCompare(b[0]));
+    hList.replaceChildren(...rows.map(([d, n, kind]) => {
+      const on = kind === 'custom' || !off.has(d);
+      return h('div', { class: 'hol' + (on ? '' : ' off') }, h('b', { text: d.slice(5).replace('-', '/') }), h('span', { class: 'grow', text: n }),
+        h('span', { class: 'badge', text: kind === 'gov' ? '政府公佈' : '自訂' }),
+        kind === 'gov'
+          ? h('button', { class: 'btn small ghost', type: 'button', onclick: () => {
+            const s2 = new Set(cal.offHolidays || []); on ? s2.add(d) : s2.delete(d); cal.offHolidays = [...s2].sort(); tidy(); drawH();
+          } }, on ? '停用' : '啟用')
+          : h('button', { class: 'btn small danger', type: 'button', onclick: () => { if (cal.extraHolidays) delete cal.extraHolidays[d]; tidy(); drawH(); } }, '移除'));
+    }));
+    if (!rows.length) hList.append(h('p', { class: 'muted', text: builtIn ? '這一年未有內建假期，可以在下面自行加入。' : '預覽載入後會顯示內建假期。' }));
+  };
+  yearSel.onchange = drawH; drawH();
+  const nd = h('input', { type: 'date' }), nn = h('input', { type: 'text', placeholder: '名稱，例如 店休／颱風假', maxlength: 30 });
+  const addH = h('button', { class: 'btn small', type: 'button', onclick: () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(nd.value)) { say('請先選擇日期', 'err'); return; }
+    (cal.extraHolidays ||= {})[nd.value] = nn.value.trim() || '假期'; yearSel.value = nd.value.slice(0, 4);
+    if (![...yearSel.options].some(o => o.value === yearSel.value)) { yearSel.append(h('option', { value: nd.value.slice(0, 4), text: nd.value.slice(0, 4) + ' 年' })); yearSel.value = nd.value.slice(0, 4); }
+    nd.value = ''; nn.value = ''; tidy(); drawH();
+  } }, '加入');
+  const holPanel = h('div', { class: 'tw-panel' }, h('h3', { text: '公眾假期（粉紅色）' }),
+    h('label', { class: 'row' }, showH, ' 公眾假期日期用「公眾假期」顏色顯示'),
+    h('p', { class: 'muted', text: '內建 2025–2027 年香港政府公佈的一般假日（資料來源：1823）。可停用個別日子，或加入自訂假期。' }),
+    h('div', { class: 'tw-font' }, h('span', { text: '年份' }), yearSel), hList,
+    h('div', { class: 'grid2' }, h('label', {}, '日期', nd), h('label', {}, '名稱', nn)), addH);
+  return [titlePanel, colorPanel, holPanel, wdPanel, linePanel,
+    h('div', { class: 'row', style: 'margin-top:10px' },
+      h('button', { class: 'btn ghost', type: 'button', onclick: () => { if (confirm('清除所有月曆設定，回復模板原貌？')) { delete P.cal; markDirty(); renderPageControls(); } } }, '全部重設月曆'),
+      h('button', { class: 'btn', type: 'button', onclick: () => $('preview').click() }, '儲存草稿並在新分頁預覽'))];
 }
 
 // ================================================================ 字體及文字
@@ -495,14 +635,17 @@ const SLOT_GROUPS = () => {
 function viewAssets() {
   const root = $('v-assets');
   root.replaceChildren(layoutCard(), h('div', { class: 'card' }, h('h2', { text: '圖片素材' }),
-    h('p', { class: 'muted', text: '更換後先存入草稿，發佈後才生效。原圖（包括 Canva 拆件）一直保留，可隨時「恢復原圖」；舊替換圖保留在版本紀錄中，不會刪除使用者的製作記錄。' }),
+    h('p', { class: 'muted', text: '更換後先存入草稿，發佈後才生效。原圖（包括 Canva 拆件）一直保留，可隨時「恢復原圖」；舊替換圖保留在版本紀錄中，不會刪除使用者的製作記錄。限定宣傳可直接上載 Canva 逐層匯出的 1012×1350 透明圖層，製作器會自動按圖層內容定位。' }),
     Object.entries(SLOT_GROUPS()).map(([label, slots]) => h('div', { class: 'block' }, h('h3', { text: label }),
       h('div', { class: 'slots' }, slots.map(slotCard))))));
 }
+const SLOT_NAMES = { 'promo/bg': '背景', 'promo/lace': '圓形蕾絲', 'promo/crown': '皇冠', 'promo/bow': '蝴蝶結徽章', 'promo/keyR': '右鑰匙',
+  'promo/keyL': '左鑰匙', 'promo/pearl': '珍珠相框', 'promo/lm': '「限定居民」字樣', 'promo/qg': 'Queen’s Garden 字樣' };
 function slotCard(slot) {
   const id = S.work.assets[slot];
-  const original = slot.startsWith('promo/') ? null : '/' + slot;
-  const pv = h('div', { class: 'pv' }, id ? h('img', { src: '/media/' + id, alt: '' }) : original ? h('img', { src: original, alt: '', loading: 'lazy' }) : h('span', { text: '原圖（內嵌於限定宣傳）' }));
+  const promo = slot.startsWith('promo/');
+  const original = promo ? '/' + slot + (slot === 'promo/bg' ? '.jpg' : '.png') : '/' + slot;
+  const pv = h('div', { class: 'pv' }, h('img', { src: id ? '/media/' + id : original, alt: '', loading: 'lazy' }));
   const file = h('input', { type: 'file', accept: 'image/png,image/webp,image/jpeg', hidden: true });
   const msg = h('div', { class: 'muted' });
   file.onchange = guard(async () => {
@@ -514,15 +657,17 @@ function slotCard(slot) {
     if (!im) { msg.textContent = '無法讀取圖片'; return; }
     if (original) {
       const o = await new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = original; });
-      if (o && (o.naturalWidth !== im.naturalWidth || o.naturalHeight !== im.naturalHeight) &&
+      // 限定宣傳：可上載整張 1012×1350 透明圖層（Canva 逐層匯出），製作器會自動找出位置
+      const fullLayer = promo && slot !== 'promo/bg' && im.naturalWidth === 1012 && im.naturalHeight === 1350;
+      if (o && !fullLayer && (o.naturalWidth !== im.naturalWidth || o.naturalHeight !== im.naturalHeight) &&
         !confirm(`尺寸不同：原圖 ${o.naturalWidth}×${o.naturalHeight}，新圖 ${im.naturalWidth}×${im.naturalHeight}。製作器會按原圖位置繪畫，仍要使用？`)) return;
     }
     msg.textContent = '上載中…';
     const r = await api(`assets?kind=image&slot=${encodeURIComponent(slot)}&label=${encodeURIComponent(f.name)}`, { method: 'POST', raw: f, headers: { 'Content-Type': f.type || 'application/octet-stream' } });
-    if (/\.(png|webp)$/.test(slot) && !r.alpha && !confirm('新圖沒有透明背景，原圖是透明圖層。仍要使用？')) { msg.textContent = '已取消（圖片已上載但未套用）'; return; }
+    if ((/\.(png|webp)$/.test(slot) || (promo && slot !== 'promo/bg')) && !r.alpha && !confirm('新圖沒有透明背景，原圖是透明圖層。仍要使用？')) { msg.textContent = '已取消（圖片已上載但未套用）'; return; }
     S.work.assets[slot] = r.assetId; markDirty(); viewAssets();
   });
-  return h('div', { class: 'slot' + (id ? ' changed' : '') }, pv, h('div', { text: slot }),
+  return h('div', { class: 'slot' + (id ? ' changed' : '') }, pv, h('div', { text: (SLOT_NAMES[slot] ? SLOT_NAMES[slot] + ' · ' : '') + slot }),
     id ? h('span', { class: 'badge warn', text: '已替換（草稿）' }) : '', msg,
     h('div', { class: 'row', style: 'margin-top:6px' },
       h('button', { class: 'btn small', type: 'button', onclick: () => file.click() }, '更換'),

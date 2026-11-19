@@ -49,6 +49,17 @@ async function putAsset(env, { kind, ownerId = null, purpose = '', bytes, mime, 
   return id;
 }
 
+// ---------------------------------------------------------------- schema (additive, idempotent)
+// 與 migrations/0002_resident_archive.sql 相同；未套用 migration 時亦可運作。
+const ARCHIVE_DDL = `CREATE TABLE IF NOT EXISTS resident_archive (
+  resident_id TEXT PRIMARY KEY, archived INTEGER NOT NULL DEFAULT 1 CHECK (archived IN (0, 1)),
+  updated_at TEXT NOT NULL, updated_by TEXT NOT NULL DEFAULT '')`;
+const archiveReady = new WeakMap();
+function ensureArchive(db) {
+  if (!archiveReady.has(db)) archiveReady.set(db, db.prepare(ARCHIVE_DDL).run().catch(e => { archiveReady.delete(db); throw e; }));
+  return archiveReady.get(db);
+}
+
 // ---------------------------------------------------------------- config storage
 async function publishedRow(db) {
   return db.prepare(`SELECT * FROM config_versions WHERE status = 'published' ORDER BY version_id DESC LIMIT 1`).first();
@@ -85,8 +96,12 @@ async function publicApi(request, env, url, ctx) {
       force = (await hit(env.DB, `refresh:${clientIp(request)}`, 60)) <= 6;
     }
     const result = await maybeSync(env, { force });
+    await ensureArchive(env.DB);
+    // 已封存的居民不在公開選單出現（資料及照片保留）
     const rows = (await env.DB.prepare(`SELECT resident_id, sheet_name, ig, default_category, photo_asset_id, updated_at
-      FROM residents WHERE sync_status IN ('active','manual') ORDER BY sheet_name COLLATE NOCASE`).all()).results || [];
+      FROM residents WHERE sync_status IN ('active','manual')
+        AND resident_id NOT IN (SELECT resident_id FROM resident_archive WHERE archived = 1)
+      ORDER BY sheet_name COLLATE NOCASE`).all()).results || [];
     const st = result.state || {};
     return json({
       residents: rows.map(publicResident),
@@ -128,11 +143,15 @@ async function adminApi(request, env, url) {
 
   // ---- residents
   if (path === 'residents' && method === 'GET') {
-    const residents = (await env.DB.prepare(`SELECT r.*, a.meta AS photo_meta, a.created_at AS photo_at FROM residents r
-      LEFT JOIN assets a ON a.asset_id = r.photo_asset_id ORDER BY r.sheet_name COLLATE NOCASE`).all()).results || [];
+    await ensureArchive(env.DB);
+    const residents = (await env.DB.prepare(`SELECT r.*, a.meta AS photo_meta, a.created_at AS photo_at,
+        COALESCE(x.archived, 0) AS archived, x.updated_at AS archived_at, x.updated_by AS archived_by FROM residents r
+      LEFT JOIN assets a ON a.asset_id = r.photo_asset_id
+      LEFT JOIN resident_archive x ON x.resident_id = r.resident_id ORDER BY r.sheet_name COLLATE NOCASE`).all()).results || [];
     const queue = (await env.DB.prepare(`SELECT * FROM resident_match_queue WHERE status = 'open' ORDER BY created_at`).all()).results || [];
     return json({
-      residents: residents.map(r => ({ ...publicResident(r), status: r.sync_status, version: r.version, lastSeenAt: r.last_seen_at, photoAt: r.photo_at })),
+      residents: residents.map(r => ({ ...publicResident(r), status: r.sync_status, version: r.version, lastSeenAt: r.last_seen_at, photoAt: r.photo_at,
+        archived: !!r.archived, archivedAt: r.archived ? r.archived_at : null, archivedBy: r.archived ? r.archived_by : null })),
       queue: queue.map(q => ({ ...q, candidate_ids: JSON.parse(q.candidate_ids || '[]') })),
       sync: await syncState(env.DB),
     });
@@ -150,6 +169,20 @@ async function adminApi(request, env, url) {
     if (!res.meta.changes) throw new HttpError(409, 'conflict', '資料已被更新，請重新整理後再試');
     await audit(env, actor, 'resident.category', m[1], { category: body.category });
     return json({ ok: true });
+  }
+  // 封存／取消封存：只影響公開選單，不改試算表、不刪除居民或照片
+  if ((m = path.match(/^residents\/([0-9A-Z]{26})\/archive$/)) && method === 'POST') {
+    const body = await readJson(request, 4096);
+    if (typeof body.archived !== 'boolean') throw new HttpError(422, 'bad_request', 'archived 必須是 true 或 false');
+    const resident = await env.DB.prepare('SELECT resident_id FROM residents WHERE resident_id = ?').bind(m[1]).first();
+    if (!resident) throw new HttpError(404, 'not_found', '找不到居民');
+    await ensureArchive(env.DB);
+    const now = nowIso();
+    await env.DB.prepare(`INSERT INTO resident_archive (resident_id, archived, updated_at, updated_by) VALUES (?, ?, ?, ?)
+      ON CONFLICT(resident_id) DO UPDATE SET archived = excluded.archived, updated_at = excluded.updated_at, updated_by = excluded.updated_by`)
+      .bind(m[1], body.archived ? 1 : 0, now, actor).run();
+    await audit(env, actor, body.archived ? 'resident.archive' : 'resident.unarchive', m[1], {});
+    return json({ ok: true, archived: body.archived, archivedAt: body.archived ? now : null });
   }
   if ((m = path.match(/^residents\/([0-9A-Z]{26})\/photo$/)) && method === 'POST') {
     const resident = await env.DB.prepare('SELECT resident_id, photo_asset_id, version FROM residents WHERE resident_id = ?').bind(m[1]).first();

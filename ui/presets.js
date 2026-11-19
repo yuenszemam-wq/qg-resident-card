@@ -135,6 +135,7 @@ function applyDaily(force = false) {
 
 // ---------- 後台即時預覽 ----------
 function liveText(page) {
+  if (page === 'calendar') return null;   // 月曆設定只在後台修改
   if (page === 'daily') {
     const D = window.qgDaily; if (!D) return null;
     const out = {};
@@ -146,6 +147,7 @@ function liveText(page) {
   return card && card.text ? JSON.parse(cardSnapshot(card)) : null;
 }
 function liveRefresh(page) {
+  if (page === 'calendar') { window.qgCalendar?.refresh(); return; }
   if (page === 'daily') {
     const D = window.qgDaily; if (!D) return;
     applyDaily(true);
