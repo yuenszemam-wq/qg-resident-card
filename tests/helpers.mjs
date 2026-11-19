@@ -105,6 +105,8 @@ export function makePng(w, h, { exif = false, alpha = false } = {}) {
 function fakeDrive(state, url) {
   const d = state.drive || { files: [] };
   if (d.denied) return new Response('{"error":"forbidden"}', { status: 403 });
+  if (d.apiDisabled) return new Response(JSON.stringify({ error: { code: 403, message: 'secret upstream text', status: 'PERMISSION_DENIED',
+    errors: [{ reason: 'accessNotConfigured' }], details: [{ reason: 'SERVICE_DISABLED' }] } }), { status: 403 });
   const u = new URL(url);
   if (u.hostname === 'lh3.googleusercontent.com') {
     const f = d.files.find(x => u.pathname.includes(x.id));

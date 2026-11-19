@@ -80,6 +80,11 @@ await page.waitForFunction(() => {
   return f && f.contentWindow.qgCards?.promo?.text?.font('name') === 'yujis';
 }, null, { timeout: 15000 });
 assert.equal(await lf.locator('nav.tabs').isVisible(), false, 'maker tabs hidden in live preview');
+// 預覽只顯示成品圖：文字微調編輯器已打開，但標題列及控制區隱藏；示範名字已填入
+await lf.locator('#promoEd canvas').waitFor({ state: 'visible', timeout: 10000 });
+assert.equal(await lf.locator('#promoEd .ed-ctrl').isVisible(), false, 'editor controls hidden in live preview');
+assert.equal(await lf.locator('#png').isVisible(), false, 'download buttons hidden in live preview');
+assert.ok(await lfr().evaluate(() => document.getElementById('name').value.length > 0), 'sample name filled');
 // 在預覽中修改文字大小 → 後台數值同步
 await lfr().evaluate(() => { const T = window.qgCards.promo.text; T.set('name', 'size', 12); });
 await page.waitForFunction(() => document.querySelector('#v-pages .tw-row output').textContent === '12', null, { timeout: 5000 });
@@ -93,13 +98,14 @@ await num.fill('0');
 // IG 分頁
 await page.locator('#v-pages .tw-seg').getByRole('tab', { name: 'IG' }).click();
 await page.waitForSelector('#v-pages .tw-seg button.on:has-text("IG")');
+await page.waitForFunction(() => document.querySelector('#v-pages iframe.live-frame').contentDocument.querySelector('#promoEd [data-pane=text] .seg button.on')?.dataset.k === 'ig', null, { timeout: 5000 });
 await page.click('#saveDraft');
 await page.waitForSelector('#barMsg.ok');
 let pub = await (await page.request.get(BASE + '/api/public/config')).json();
 assert.notEqual(pub.config.pages.promo.text.name?.font, 'yujis', 'draft must not be public');
 
 step('calendar: custom title, holiday colour, template text in live preview');
-await page.locator('#v-pages .chips.big').getByRole('button', { name: 'QG 月曆' }).click();
+await page.locator('#v-pages .page-seg').getByRole('tab', { name: 'QG 月曆' }).click();
 await page.waitForFunction(() => document.querySelector('#v-pages iframe.live-frame')?.contentWindow?.qgCalendar, null, { timeout: 15000 });
 await page.waitForSelector('#v-pages .hol', { timeout: 8000 });
 await page.fill('#v-pages .tw-panel input[type=text]', '{{YEAR}}年{{M}}月');
@@ -114,7 +120,7 @@ const holColor = await lfr().evaluate(() => {
 assert.match(holColor, /12\/25 聖誕節/);
 await page.click('#saveDraft');
 await page.waitForSelector('#barMsg.ok');
-await page.locator('#v-pages .chips.big').getByRole('button', { name: '限定宣傳' }).click();
+await page.locator('#v-pages .page-seg').getByRole('tab', { name: '限定宣傳' }).click();
 
 step('edit copy template and publish');
 await page.click('.nav button[data-v=copy]');

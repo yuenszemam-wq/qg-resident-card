@@ -36,3 +36,15 @@
 
 /* 管理後台即時預覽：只顯示目前頁面 */
 .qgp-live .tabs{display:none}
+/* 只顯示成品圖：其他介面隱藏（visibility 令子元素可以重新顯示），編輯器只保留預覽畫布 */
+html.qgp-live,html.qgp-live body{background:#120c1a;overflow:hidden;overscroll-behavior:none}
+html.qgp-live body{visibility:hidden}
+html.qgp-live .qg-ed,html.qgp-live-calendar .cal-poster{visibility:visible}
+html.qgp-live .qg-ed{background:#120c1a}
+html.qgp-live .qg-ed .ed-head,html.qgp-live .qg-ed .ed-ctrl,html.qgp-live .qg-ed .qg-fs{display:none!important}
+html.qgp-live .qg-ed .ed-view{flex:1;padding:4px}
+html.qgp-live .qg-ed .ed-view canvas{border:none;border-radius:6px}
+html.qgp-live-calendar .cal-poster{position:fixed;z-index:70;left:50%;top:50%;transform:translate(-50%,-50%);
+  aspect-ratio:1080/1350;width:min(calc(100vw - 8px),calc((100vh - 8px)*1080/1350));margin:0}
+html.qgp-live-calendar .cal-poster canvas{width:100%;height:100%;border-radius:6px}
+html.qgp-live-calendar #cal-grid{pointer-events:none}

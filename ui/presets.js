@@ -16,6 +16,7 @@ const params = new URLSearchParams(location.search);
 const previewDraft = params.get('qgPreview') === 'draft';
 // 管理後台「頁面設定」內嵌的即時預覽：設定由後台 postMessage 傳入，製作器上的修改亦會傳回後台
 const previewLive = params.get('qgPreview') === 'live' && window.parent !== window;
+if (previewLive) document.documentElement.classList.add('qgp-live');   // 一開始就隱藏製作器介面，避免閃一下
 let liveResolve;
 const liveFirst = new Promise(r => { liveResolve = r; });
 
@@ -162,6 +163,47 @@ function liveRefresh(page) {
   } else applyCard(page, true);
 }
 let liveBaseline = () => {};
+// 後台只需要成品圖：填入示範文字，打開該頁的「文字微調」編輯器，再用 CSS 隱藏其他介面（qgp-live）
+const LIVE_SAMPLE = {
+  promo: {name:'幽月', ig:'@yuzuki_qg'},
+  shadow: {'sh-name':'幽月', 'sh-ig':'@yuzuki_qg'},
+};
+const LIVE_DATE = {promo:'date', shadow:'sh-date'};
+const LIVE_OPEN = {promo:'adjOpen', shadow:'shOpenText', weekly:'wkOpenText', daily:'dyOpenText'};
+const liveEditor = () => document.querySelector('.qg-ed:not([hidden])');
+function liveFill(page) {
+  const set = (id, v) => { const el = $(id); if (el && !el.value) { el.value = v; el.dispatchEvent(new Event('input', {bubbles:true})); el.dispatchEvent(new Event('change', {bubbles:true})); } };
+  for (const [id, v] of Object.entries(LIVE_SAMPLE[page] || {})) set(id, v);
+  if (LIVE_DATE[page]) { const d = new Date(); set(LIVE_DATE[page], `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`); }
+  if (page === 'daily') {
+    const D = window.qgDaily;
+    if (D && D.state.res) {
+      ['幽月', '小豆'].forEach((n, i) => { const r = D.state.res[i]; if (r && !r.name) r.name = n; });
+      try { D.renderList?.(); } catch {}
+      D.still?.();
+    }
+  }
+}
+function liveStage(page) {
+  document.documentElement.classList.add('qgp-live-' + page);
+  if (page === 'calendar') return;
+  let tries = 0;
+  const go = () => {
+    liveFill(page);
+    if (!liveEditor()) $(LIVE_OPEN[page])?.click();
+    if (!liveEditor() && ++tries < 40) setTimeout(go, 250);
+  };
+  setTimeout(go, 50);
+}
+function liveSelect(key) {
+  const ed = liveEditor(); if (!ed) return;
+  const b = ed.querySelector(`[data-pane=text] .seg button[data-k="${CSS.escape(key)}"]`);
+  if (b && !b.classList.contains('on')) b.click();
+}
+function liveSelected() {
+  const b = liveEditor()?.querySelector('[data-pane=text] .seg button.on[data-k]');
+  return b ? b.dataset.k : null;
+}
 function setupLive() {
   let page = null, last = '';
   liveBaseline = () => {
@@ -171,12 +213,16 @@ function setupLive() {
   };
   const post = msg => window.parent.postMessage(msg, location.origin);
   window.addEventListener('message', e => {
-    if (e.origin !== location.origin || e.source !== window.parent || !e.data || e.data.type !== 'qg-live-config') return;
+    if (e.origin !== location.origin || e.source !== window.parent || !e.data) return;
+    if (e.data.type === 'qg-live-select') { liveSelect(String(e.data.key || '')); return; }
+    if (e.data.type === 'qg-live-play') { liveEditor()?.querySelector('.ed-head .small')?.click(); return; }
+    if (e.data.type !== 'qg-live-config') return;
     page = e.data.page;
     if (liveResolve) {   // 第一次：作為製作器的「已發佈設定」，素材及預設照常套用
       const r = liveResolve; liveResolve = null;
       document.documentElement.classList.add('qgp-live');
       r({version:'live', config:e.data.config});
+      liveStage(page);
       return;
     }
     config = e.data.config;
@@ -184,9 +230,13 @@ function setupLive() {
     try { liveRefresh(page); } catch {}   // 素材未載入完成時畫面稍後會自行重畫
     liveBaseline();
   });
-  // 製作器上的修改（拖動文字、微調、字體）傳回後台
+  // 製作器上的修改（拖動文字、微調、字體）及卡上點選的文字傳回後台
+  let lastSel = null;
   setInterval(() => {
-    if (!page || !config || liveResolve || !last) return;
+    if (!page || !config || liveResolve) return;
+    const k = liveSelected();
+    if (k && k !== lastSel) { lastSel = k; post({type:'qg-live-sel', page, key:k}); }
+    if (!last) return;
     const now = liveText(page); if (!now) return;
     const s = JSON.stringify(now);
     if (s !== last) { last = s; post({type:'qg-live-text', page, text:now}); }

@@ -83,14 +83,25 @@ iframe.pv{width:100%;height:80vh;border:1px solid var(--line);border-radius:12px
 .sheet-head h2{flex:1;margin:0;color:var(--gold);font-size:17px}
 .xbtn{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:#120c1a;color:var(--text);font-size:18px;cursor:pointer}
 .foot{text-align:center;margin-top:20px}
-/* 頁面設定：即時預覽 */
-.live-wrap{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:12px;align-items:start}
+/* 頁面設定：上面只顯示成品圖，下面是文字微調（手機）；電腦版左右並排 */
+.pages-card{padding:10px}
+.page-seg{display:flex;gap:4px;padding:3px;margin-bottom:10px;border-radius:12px;background:#120c1a;border:1px solid var(--line);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.page-seg::-webkit-scrollbar{display:none}
+.page-seg button{flex:1 0 auto;border:none;border-radius:9px;padding:9px 12px;font-size:14px;background:transparent;color:var(--muted);cursor:pointer;white-space:nowrap}
+.page-seg button.on{background:var(--gold);color:#1a1020;font-weight:600}
+.live-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start}
 .live-pane{position:sticky;top:8px}
-.live-frame{width:100%;height:min(80vh,900px);border:1px solid var(--line);border-radius:12px;background:#120c1a;display:block}
+.live-frame{width:100%;height:min(78vh,860px);border:1px solid var(--line);border-radius:12px;background:#120c1a;display:block;transition:height .2s}
+.live-tools{display:flex;align-items:center;gap:6px;margin-top:6px}
+.live-tools .muted{font-size:12px}
+.live-tools .btn{flex:none}
+.tw-main{margin-top:0}
 @media (max-width:760px){
-  .live-wrap{grid-template-columns:1fr}
-  .live-pane{position:sticky;top:0;z-index:5;background:var(--bg,#16101f);padding-bottom:6px}
-  .live-frame{height:52vh}
+  body[data-view=pages] .bar{position:static}
+  .live-wrap{grid-template-columns:1fr;gap:8px}
+  .live-pane{position:sticky;top:0;z-index:25;margin:0 -10px;padding:0 10px 6px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .live-frame{height:42vh;height:42svh}
+  .live-pane.big .live-frame{height:70vh;height:70svh}
 }
 @media (max-width:640px){
   .copy-wrap{grid-template-columns:1fr}
