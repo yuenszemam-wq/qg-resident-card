@@ -79,8 +79,25 @@
   const BANNER_PARTS=[[0,66,.55],[94,149,.67],[153,209,.8],[215,267,.93],[294,361,1.03]];
   const ease=x=>1-Math.pow(1-x,3);
   const pop=x=>x>=1?1:1+2.2*Math.pow(x-1,3)+1.2*Math.pow(x-1,2);
+  // 對照 Canva 原片逐格量度：
+  // 「影子精靈」標題不停放大縮細（約 0.9 秒一次，約 0.86～1.11 倍），4.6 秒起模糊淡出
+  const TITLE_PULSE=[[0,1.107],[.15,1.02],[.25,.96],[.35,.91],[.45,.877],[.55,.86],[.65,.91],[.75,1],[.85,1.105],[.9,1.107]];
+  // 兩隻小幽靈：左右、上下飄動及左右擺（卡片像素、度）
+  const GHOST_R=[[.4,8,8,0],[.7,11,6,-6],[.95,11,-6,-5],[1.15,11,-7,3],[1.35,4,2,8],[1.6,-4,7,8],[1.9,7,7,8],[2.15,7,11,1],[2.4,7,7,-2],[2.6,7,7,4],[2.8,7,-4,8],[3.1,7,-15,8],[3.3,-7,-7,10],[3.55,-19,0,10],[3.8,-11,-7,8],[4,-4,-11,4],[4.25,-4,-7,-6],[4.4,-11,-4,-6],[4.5,-15,-4,-2],[5,-15,-4,-2]];
+  const GHOST_L=[[.6,-56,0,-2],[.75,-25,-4,0],[.9,4,-8,2],[1.05,11,-7,8],[1.2,4,0,12],[1.4,-8,11,12],[1.6,-4,11,10],[1.8,8,-4,10],[1.95,11,-8,4],[2.1,8,-4,-2],[2.3,-8,8,0],[2.5,-8,8,8],[2.7,4,-4,10],[2.9,8,-8,2],[3.1,0,-11,-4],[3.3,-8,-15,0],[3.5,-8,-8,8],[3.75,-15,13,6],[3.9,-11,11,0],[4.1,4,-4,-2],[4.3,15,-11,-6],[4.45,8,-11,-8],[4.65,-9,-11,-4],[4.85,-11,-11,4],[5,-11,-8,10]];
+  const smooth=(keys,t,i)=>{
+    if (t<=keys[0][0]) return keys[0][i];
+    for (let k=1;k<keys.length;k++) if (t<=keys[k][0]) {
+      const a=keys[k-1], b=keys[k], p=(t-a[0])/(b[0]-a[0]), q=p*p*(3-2*p);
+      return a[i]+(b[i]-a[i])*q;
+    }
+    return keys[keys.length-1][i];
+  };
+  const titleScale=t=>{ const p=(((t-1.05)%.9)+.9)%.9; return smooth(TITLE_PULSE,p,1); };
   function draw(t=5, s=details(), noBg=false) {
     if (!images) return;
+    // t>=5 = 靜態完成圖（PNG、細預覽）：標題唔縮放、唔淡出，小幽靈位置同以前一樣
+    const finalFrame=t>=5;
     const progress = (start,duration) => Math.max(0,Math.min(1,(t-start)/duration));
     function layer(id, opacity=1, y=0, scale=1, blur=0) {
       if (opacity<=0) return;
@@ -115,7 +132,11 @@
     layer(5,Math.min(1,frame*1.6),0,.45+.55*ease(frame),8*(1-frame));
     layer(4,progress(.3,.25));
     layer(3,progress(.3,.25),-10*(1-ease(progress(.3,.25))));
-    layer(1,progress(0,.4));
+    if (finalFrame) layer(1);
+    else {
+      const out=progress(4.6,.18);
+      layer(1,progress(0,.4)*(1-out),0,titleScale(t),10*out);
+    }
     // 心心及「出沒中」逐個彈出
     const im2=images[2], [bx,by]=positions[2];
     for (const [a,b,at] of BANNER_PARTS) {
@@ -126,8 +147,21 @@
       ctx.drawImage(im2,a,0,b-a,im2.height,-(b-a)/2,-im2.height/2,b-a,im2.height);
       ctx.restore();
     }
-    layer(8,progress(.25,.25),-8*Math.sin(t*2));
-    layer(7,progress(.85,.3),8*Math.sin(t*2));
+    function ghost(id,opacity,dx,dy,rot,blur){
+      if (opacity<=0) return;
+      const im=images[id], [x0,y0]=positions[id];
+      ctx.save(); ctx.globalAlpha=opacity;
+      if (blur>.05) ctx.filter='blur('+blur+'px)';
+      ctx.translate(x0+im.width/2+dx,y0+im.height/2+dy); ctx.rotate(rot*Math.PI/180);
+      ctx.drawImage(im,-im.width/2,-im.height/2);
+      ctx.restore();
+    }
+    if (finalFrame) { layer(8,1,-8*Math.sin(10)); layer(7,1,8*Math.sin(10)); }
+    else {
+      const gr=progress(.15,.3), gl=progress(.55,.3);
+      ghost(8,gr,smooth(GHOST_R,t,1),smooth(GHOST_R,t,2),smooth(GHOST_R,t,3),8*(1-gr));
+      ghost(7,gl,smooth(GHOST_L,t,1),smooth(GHOST_L,t,2),smooth(GHOST_L,t,3),8*(1-gl));
+    }
     // Queen's Garden 由模糊淡入
     const qg=progress(1,.35);
     layer(6,qg,0,1,6*(1-qg));
@@ -244,17 +278,21 @@
         return;
       }
       pending=null; field('saveBox').classList.remove('on');
-      field('rec').classList.add('on'); status('錄影中…約 5 秒');
+      field('rec').classList.add('on'); status('影片製作中…請稍等');
       const out=await window.qgVideo.record({
         bg:'video/shadow-bg.jpg', card:canvas, cardBg:images[0], duration:5, hold:0,
         frame:t=>draw(t,s,true),
-        progress:p=>window.qgWorkflow?.progress('shadow',Math.min(90,Math.round(5+85*p)),'正在錄製影片'),
+        progress:p=>window.qgWorkflow?.progress('shadow',Math.min(90,Math.round(5+85*p)),'正在製作影片'),
       });
       pending={blob:out.blob,filename:filename+'.'+out.ext,s};
       window.qgWorkflow?.progress('shadow',92,'儲存本機記錄');
       await rec();
-      field('saveBox').classList.add('on'); status('錄好了！按下面的按鈕儲存' + (out.ext==='webm' ? '（這個瀏覽器只能錄成 WebM 格式）' : ''));
-      window.qgWorkflow?.progress('shadow',95,'影片已錄好，請儲存');
+      const webm=out.ext==='webm'?'（這個瀏覽器只能錄成 WebM 格式）':'';
+      // 可以自動儲存就自動儲存；iPhone 要親手按「儲存影片」先可以存入相簿
+      const saved=await window.qgVideo.autoSave(out.blob,pending.filename);
+      field('saveBox').classList.add('on');
+      if(saved==='saved'){ status('影片已自動儲存：'+pending.filename+webm); window.qgWorkflow?.finish('shadow',true,'影片已完成並儲存'); openPromo(s,caption(s)); }
+      else { status('影片已製作好！按下面「儲存影片」存入相簿'+webm); window.qgWorkflow?.finish('shadow',true,'影片已完成，請按「儲存影片」'); }
     } catch(err) { status(err.message || '匯出失敗，請再試一次。');window.qgWorkflow?.fail('shadow','匯出失敗'); }
     finally { field('rec').classList.remove('on'); lock(false); draw(); }
   }

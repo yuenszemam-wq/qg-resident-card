@@ -7,22 +7,29 @@
 .qg-fields label.wide{margin-top:6px}
 .qg-fields input{min-width:0}
 
-/* 「預覽及調整」全螢幕編輯器（ui/editor.js） */
+/* 「預覽及調整」全螢幕編輯器（ui/editor.js）：控制區收細，iPhone 一頁睇晒（包括重設掣），其餘位置留俾預覽 */
 .qg-ed{height:100dvh;min-height:0;z-index:70}
 .qg-ed [hidden]{display:none!important}
-.qg-ed .ed-head{flex-wrap:wrap;min-height:54px;position:relative;z-index:2}
+.qg-ed .ed-head{flex-wrap:wrap;min-height:50px;padding:6px 12px;position:relative;z-index:2}
 .qg-ed .ed-head h2{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.qg-ed .ed-head .small,.qg-ed .ed-head .ed-done{white-space:nowrap;flex-shrink:0}
-.qg-ed .ed-view{overflow:hidden}
+.qg-ed .ed-head .small,.qg-ed .ed-head .ed-done{white-space:nowrap;flex-shrink:0;padding:7px 12px;font-size:14px}
+.qg-ed .ed-view{overflow:hidden;padding:6px}
 .qg-ed .ed-view canvas{display:block;border-radius:10px;border:1px solid var(--line);background:#000;touch-action:none;cursor:grab}
-.qg-ed .ed-ctrl{max-height:46dvh;overflow-y:auto;overscroll-behavior:contain}
-.qg-ed .ed-tip{margin:8px 0 0}
-.qg-ed [data-pane=text] .seg{margin-top:8px}
+.qg-ed .ed-ctrl{padding:8px 12px calc(8px + env(safe-area-inset-bottom));overflow-y:auto;overscroll-behavior:contain}
+.qg-ed .seg{padding:2px;border-radius:10px}
+.qg-ed .seg button{padding:6px 0;font-size:14px}
+.qg-ed .ed-tip{margin:5px 0 0;font-size:11px}
+.qg-ed [data-pane=text] .seg{margin-top:5px}
+.qg-ed .ed-font{margin-top:6px}
+.qg-ed .ed-font select{min-width:0;padding:6px 10px;font-size:15px}
+.qg-ed .ed-row{grid-template-columns:2.4em 32px 1fr 32px 2.4em;gap:6px;margin-top:5px}
+.qg-ed .step{width:32px;height:32px;font-size:18px}
+.qg-ed .ed-foot{margin-top:7px}
+.qg-ed .ed-foot .small{flex:1;padding:8px 6px}
 .qg-ed .ed-file{display:flex;align-items:center;justify-content:center;margin:0;color:var(--muted)}
-.qg-ed .ed-font select{min-width:0}
 @media(max-width:440px){
  .qg-ed .ed-head{gap:6px}
- .qg-ed .ed-head .small,.qg-ed .ed-head .ed-done{font-size:13px;padding:8px 10px}
+ .qg-ed .ed-head .small,.qg-ed .ed-head .ed-done{font-size:13px;padding:7px 10px}
 }
 
 /* 下載進度 */

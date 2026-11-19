@@ -100,6 +100,9 @@ def verify(browser):
         expect(page.locator(f"{ed} [data-m=photo]")).to_be_visible()
         page.locator(f"{ed} [data-m=text]").click()
         expect(page.locator(ed + "Font")).to_be_visible()
+        # Compact text controls: both reset buttons fit on one phone screen.
+        foot = page.locator(f"{ed} [data-pane=text] .ed-foot").bounding_box()
+        assert foot and foot["y"] + foot["height"] <= 844, foot
         page.locator(ed + "Exit").click()
         expect(page.locator(ed)).to_be_hidden()
     assert_two_columns("#tab-promo", "#cv")
@@ -107,7 +110,7 @@ def verify(browser):
     page.locator("#name").fill("幽月")
     page.locator("#ig").fill("qg_test")
     page.locator("#date").fill("2026-11-20")
-    expect(page.locator("#dateout")).to_contain_text("2011")
+    expect(page.locator("#dateout")).to_contain_text("20 Nov 2026")
     assert page.locator("#png").bounding_box()["y"] < 844
     # Preview playback must not lock other actions.
     page.locator("#play").click()

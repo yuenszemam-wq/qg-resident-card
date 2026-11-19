@@ -24,7 +24,6 @@ let current = null;
 function register(cfg) {
   const id = cfg.id;
   const T = cfg.text, P = cfg.photo;
-  const multi = T.items.length > 1;
   let mode = 'photo', sel = T.items[0][0], opened = false, raf = 0, dirty = false;
 
   // ---------- 介面 ----------
@@ -52,7 +51,8 @@ function register(cfg) {
 
   // 文字
   const tipT = h('div', {class:'ed-tip'});
-  const segT = h('div', {class:'seg', role:'tablist', hidden:!multi});
+  // 以影子精靈的調整頁為標準：一律顯示文字分頁及兩個重設掣
+  const segT = h('div', {class:'seg', role:'tablist'});
   segT.style.gridTemplateColumns = `repeat(${T.items.length},1fr)`;
   for (const [k, l] of T.items) segT.append(h('button', {type:'button', role:'tab', 'data-k':k, text:l}));
   const font = h('select', {id:id+'Font', 'aria-label':'字體'});
@@ -66,7 +66,7 @@ function register(cfg) {
       h('button', {class:'step', type:'button', 'data-f':f, 'data-d':'1', 'aria-label':l+'增加', text:'+'}), outs[f]));
   }
   const resetOne = h('button', {class:'small', type:'button', id:id+'ResetText'});
-  const resetAll = h('button', {class:'small', type:'button', text:'全部重設', hidden:!multi});
+  const resetAll = h('button', {class:'small', type:'button', text:'全部重設'});
   const paneT = h('div', {'data-pane':'text', hidden:true}, tipT, segT,
     h('label', {class:'ed-font'}, h('span', {text:'字體'}), font), rows,
     h('div', {class:'ed-foot'}, resetOne, resetAll));
@@ -95,7 +95,7 @@ function register(cfg) {
       font.dataset.k = sel;
     }
     font.value = T.font(sel);
-    resetOne.textContent = multi ? '重設' + label(sel) : '重設文字';
+    resetOne.textContent = '重設' + label(sel);
     tipT.textContent = T.has(sel) ? '可以直接在卡上拖動文字' : (T.emptyTip ? T.emptyTip(sel) : '未輸入' + label(sel) + '，先在上面填寫');
   }
   function syncMode() {
