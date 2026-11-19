@@ -66,7 +66,7 @@ assert.notEqual(pub.config.pages.promo.text.name?.font, 'yujis', 'draft must not
 
 step('edit copy template and publish');
 await page.click('.nav button[data-v=copy]');
-await page.fill('#v-copy textarea', '🔮 {{NAME}} {{IG}}\n✦ {{DATE}}｜{{CATEGORY}}\n𝑸𝒖𝒆𝒆𝒏’𝒔 𝑮𝒂𝒓𝒅𝒆𝒏');
+await page.fill('#v-copy textarea', '🔮 {{NAME}} {{IG}}\n✦ {{DATE}}\n𝑸𝒖𝒆𝒆𝒏’𝒔 𝑮𝒂𝒓𝒅𝒆𝒏');
 assert.match(await page.textContent('#v-copy .copy-out'), /🔮 幽月 @yuzuki_qg/);
 await page.click('#publish');
 await page.waitForFunction(() => /已發佈/.test(document.querySelector('#barMsg').textContent));
@@ -75,20 +75,18 @@ assert.equal(pub.config.pages.promo.text.name.font, 'yujis');
 assert.match(pub.config.copy.promo.template, /^🔮 \{\{NAME\}\}/);
 
 // ---------- public maker ----------
-step('public promo: pick resident');
+step('public promo: no resident picker, manual entry');
 const pub2 = await context.newPage();
 pub2.on('pageerror', e => errors.push(e.message));
 pub2.on('dialog', d => d.accept());
 await pub2.goto(BASE + '/');
 await pub2.waitForFunction(() => window.qgPresets && window.qgPromoView);
 await pub2.waitForFunction(() => window.qgPromoView.state.font.name === 'yujis', null, { timeout: 8000 });
-await pub2.click('#tab-promo .qgp-pick');
-await pub2.locator('.qgp-item', { hasText: '幽月' }).click();
+assert.equal(await pub2.locator('.qgp-pick').count(), 0);
+await pub2.fill('#name', '幽月');
+await pub2.fill('#ig', '@yuzuki_qg');
+await pub2.setInputFiles('#photo', photo);
 await pub2.waitForFunction(() => !!window.qgPromoView.state.photo, null, { timeout: 8000 });
-assert.equal(await pub2.inputValue('#name'), '幽月');
-assert.equal(await pub2.inputValue('#ig'), '@yuzuki_qg');
-assert.equal(await pub2.inputValue('#tab-promo .qgp-cat'), 'shadow');
-await pub2.selectOption('#tab-promo .qgp-cat', 'limited');
 
 step('manual edit is not overwritten by background roster refresh');
 await pub2.fill('#name', '幽月（今次）');
@@ -103,17 +101,17 @@ await pub2.click('#png');
 await pub2.waitForSelector('#promo:not([hidden])', { timeout: 15000 });
 await dl;
 const text = await pub2.textContent('#promoText');
-assert.equal(text, '🔮 幽月（今次） @yuzuki_qg\n✦ 20 Nov 2026｜限定\n𝑸𝒖𝒆𝒆𝒏’𝒔 𝑮𝒂𝒓𝒅𝒆𝒏');
+assert.equal(text, '🔮 幽月（今次） @yuzuki_qg\n✦ 20 Nov 2026\n𝑸𝒖𝒆𝒆𝒏’𝒔 𝑮𝒂𝒓𝒅𝒆𝒏');
 await pub2.click('#promoClose');
 assert.match(await pub2.textContent('#qg-last-caption-promo .qg-caption-body'), /幽月（今次）/);
 const def = await (await pub2.request.get(BASE + '/api/public/residents')).json();
 assert.equal(def.residents.find(r => r.name === '幽月').category, 'shadow', 'temporary category does not change the default');
 
-step('shadow + weekly pickers present');
+step('shadow + weekly have no resident picker');
 await pub2.click('#tabBtnShadow');
-assert.equal(await pub2.locator('#tab-shadow .qgp-pick').count(), 1);
+assert.equal(await pub2.locator('#tab-shadow .qgp-pick').count(), 0);
 await pub2.click('#tabBtnWeekly');
-assert.equal(await pub2.locator('#tab-weekly .qgp-pick').count(), 1);
+assert.equal(await pub2.locator('#tab-weekly .qgp-pick').count(), 0);
 
 step('daily: per-resident picker');
 await pub2.click('#tabBtnDaily');

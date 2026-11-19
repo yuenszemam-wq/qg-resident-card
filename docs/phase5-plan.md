@@ -34,11 +34,11 @@ Cloudflare Worker qg-resident-card（新增 worker/index.js，靜態資源維持
 
 ## 3. 管理權限（已按指示改用管理密碼）
 
-1. 管理密碼只以 PBKDF2-SHA256（100,000 次）雜湊存於 Cloudflare Secret `ADMIN_PASSWORD_HASH`；repo、前端、D1 都沒有密碼原文。
+1. 管理密碼存於 Cloudflare Secret：`ADMIN_PASSWORD`（密碼原文，最簡單）或 `ADMIN_PASSWORD_HASH`（PBKDF2-SHA256 雜湊）。repo、前端、D1 都沒有密碼。`wrangler.jsonc` 設有 `keep_vars: true`，部署時不會清走後台設定的變數。
 2. 登入成功發出隨機 session token（HttpOnly、Secure、SameSite=Strict、只限 `/api/admin`），D1 只存 token 的 SHA-256，12 小時到期，可登出。
 3. 同一 IP 15 分鐘內錯 5 次即鎖定；管理 API 每個 session 每 5 分鐘最多 300 次；上載每分鐘最多 30 次。
 4. 所有 `/api/admin/*` 寫入請求必須同源（Origin）並帶 `X-QG-Admin: 1`（防 CSRF）；`/admin/` 頁面本身是公開靜態檔，不代表任何權限。
-5. 更改密碼：`npm run hash-password` 產生新雜湊，再在 Cloudflare 更新 `ADMIN_PASSWORD_HASH`（舊 session 仍有效至到期，如需即時失效可清空 `admin_sessions`）。
+5. 更改密碼：在 Cloudflare 更新 `ADMIN_PASSWORD`（或用 `npm run hash-password` 產生新雜湊再更新 `ADMIN_PASSWORD_HASH`）（舊 session 仍有效至到期，如需即時失效可清空 `admin_sessions`）。
 
 ## 4. Google Sheets 唯讀同步
 
@@ -109,14 +109,14 @@ Google 憑證選項：
 4. 設定版本系統＋頁面預設／字體／相框／日期設定＋`ui/presets.js` 接入四個製作器
 5. 宣傳文案模板（遷移現有文案為 v1）、下載後彈窗改用模板
 6. 素材管理
-7. 公開製作器選擇居民自動填入（限定宣傳、影子精靈、每週、每日）
+7. 公開製作器選擇居民自動填入（只限每日更表；限定宣傳、影子精靈、每週更表照舊手動填寫）
 8. Playwright 回歸（Chromium＋WebKit iPhone）、PR、部署驗證
 
 ## 11. 部署前設定（Cloudflare → Workers & Pages → qg-resident-card → Settings → Variables and Secrets）
 
 | Secret | 內容 |
 |---|---|
-| `ADMIN_PASSWORD_HASH` | `npm run hash-password` 的輸出（`pbkdf2-sha256$100000$…`） |
+| `ADMIN_PASSWORD` | 管理密碼原文（類型選 **Secret**）。或改用 `ADMIN_PASSWORD_HASH`＝`npm run hash-password` 的輸出 |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | 服務帳戶金鑰 JSON 全文；只需 Sheets API 唯讀，**試算表擁有人需把服務帳戶電郵加入為「檢視者」** |
 
 未設定時：公開製作器照常運作（沒有名冊）；管理後台登入顯示「管理密碼尚未設定」。

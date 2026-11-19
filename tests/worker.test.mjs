@@ -151,6 +151,18 @@ test('admin API needs a session; /admin page itself grants nothing', async () =>
   assert.equal(forged.status, 401);
 });
 
+test('plain ADMIN_PASSWORD secret also works', async () => {
+  delete env.ADMIN_PASSWORD_HASH;
+  env.ADMIN_PASSWORD = 'plain-pass';
+  assert.equal((await data(req('/api/admin/login', { method: 'POST', body: { password: 'wrong' } }))).status, 401);
+  assert.equal((await data(req('/api/admin/login', { method: 'POST', body: { password: 'plain-pass' } }))).status, 200);
+  delete env.ADMIN_PASSWORD;
+  env.ADMIN_PASSWORD_HASH = 'plain-pass';
+  assert.equal((await data(req('/api/admin/login', { method: 'POST', body: { password: 'plain-pass' } }))).status, 200);
+  delete env.ADMIN_PASSWORD_HASH;
+  assert.equal((await data(req('/api/admin/login', { method: 'POST', body: { password: 'plain-pass' } }))).status, 503);
+});
+
 test('login lockout after 5 failures; CSRF header and origin enforced', async () => {
   for (let i = 0; i < 5; i++) assert.equal((await data(req('/api/admin/login', { method: 'POST', body: { password: 'x' } }))).status, 401);
   assert.equal((await data(req('/api/admin/login', { method: 'POST', body: { password: PASSWORD } }))).status, 429);

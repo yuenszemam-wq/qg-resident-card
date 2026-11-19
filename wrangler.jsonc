@@ -5,6 +5,8 @@
   "main": "worker/index.js",
   "compatibility_date": "2026-10-15",
   "workers_dev": true,
+  // 保留在 Cloudflare 後台設定的變數，部署時不會被清走
+  "keep_vars": true,
   "assets": {
     "directory": ".",
     "binding": "ASSETS",
@@ -23,6 +25,7 @@
   ],
   "observability": { "enabled": true, "head_sampling_rate": 0.2 }
   // Secrets (set in the dashboard, never in this file):
+  //   ADMIN_PASSWORD               管理密碼原文（最簡單）；或
   //   ADMIN_PASSWORD_HASH          pbkdf2-sha256$100000$<salt>$<hash>  (npm run hash-password)
   //   GOOGLE_SERVICE_ACCOUNT_JSON  service-account key JSON with read access to the sheet
 }

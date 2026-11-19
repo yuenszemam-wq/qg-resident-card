@@ -254,59 +254,6 @@ function openSheet(cb) {
 }
 function closeSheet() { sheet.hidden = true; document.body.style.overflow = ''; onPick = null; }
 
-function setInput(id, value) {
-  const el = $(id); if (!el) return;
-  el.value = value ?? '';
-  el.dispatchEvent(new Event('input', {bubbles:true}));
-  el.dispatchEvent(new Event('change', {bubbles:true}));
-}
-async function loadInto(page, r, status) {
-  if (!r.photo) { status('已載入名字及 IG；這位居民未有預設相片，請自行選擇'); return; }
-  status('載入預設相片中…');
-  try {
-    const blob = await photoBlob(r.photo);
-    await window.qgCards[page].photo.load(blob);
-    status('已載入 ' + r.name + ' 的資料及預設相片，可以繼續微調（不會改動全站預設）');
-  } catch { status('預設相片載入失敗，可以自行選擇相片'); }
-}
-
-// 限定宣傳、影子精靈、每週更表：表格上方加「選擇居民」列
-const PICKER = {
-  promo:{form:'#tab-promo .qg-fields', name:'name', ig:'ig', category:true, status:'status'},
-  shadow:{form:'#sh-form', name:'sh-name', ig:'sh-ig', category:true, status:'sh-status'},
-  weekly:{form:'#tab-weekly .wk-panel', status:'wkStatus', photoOnly:true},
-};
-function mountPicker(page) {
-  const o = PICKER[page], form = document.querySelector(o.form);
-  if (!form || form.parentElement.querySelector('.qgp-row')) return;
-  const row = document.createElement('div'); row.className = 'panel qgp-row'; row.dataset.page = page;
-  const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'qgp-pick';
-  btn.innerHTML = '<span>👤</span><span class="qgp-who">選擇居民（自動載入資料及相片）</span><span class="go">›</span>';
-  const meta = document.createElement('div'); meta.className = 'qgp-meta';
-  const info = document.createElement('span'); info.className = 'qgp-sync';
-  meta.append(info);
-  let cat;
-  if (o.category) {
-    cat = document.createElement('select'); cat.className = 'qgp-cat'; cat.setAttribute('aria-label', '本次宣傳分類');
-    for (const [k, v] of Object.entries(CAT_LABEL)) { const op = document.createElement('option'); op.value = k; op.textContent = '本次分類：' + v; cat.append(op); }
-    cat.value = 'regular'; cat.disabled = true;
-    cat.onchange = () => { if (picked[page]) picked[page].category = cat.value; };
-    meta.append(cat);
-  }
-  row.append(btn, meta);
-  form.insertAdjacentElement('beforebegin', row);
-  const status = msg => { const el = $(o.status); if (el) el.textContent = msg; };
-  const update = () => { info.textContent = syncText(); };
-  listeners.add(update); update();
-  btn.onclick = () => openSheet(r => {
-    picked[page] = {id:r.id, category:r.category || 'regular'};
-    btn.querySelector('.qgp-who').textContent = r.name + (r.ig ? '  ' + r.ig : '');
-    if (cat) { cat.disabled = false; cat.value = picked[page].category; }
-    if (!o.photoOnly) { setInput(o.name, r.name); setInput(o.ig, r.ig); }
-    loadInto(page, r, status);
-  });
-}
-
 // 每日更表：每位居民一個「👤」按鈕（清單重繪後自動補回）
 function mountDaily() {
   const list = $('dyList'); if (!list || !window.qgDaily) return;
@@ -337,7 +284,6 @@ function mountDaily() {
 
 // ---------- 啟動 ----------
 function boot() {
-  for (const p of Object.keys(PICKER)) mountPicker(p);
   mountDaily();
   loadRoster(false);
   // 包住 qgWorkflow.finish：每週／每日更表下載成功後彈出文案

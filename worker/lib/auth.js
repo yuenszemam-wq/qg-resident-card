@@ -1,5 +1,6 @@
-// Admin authentication: one shared password, stored only as a PBKDF2 hash in the
-// ADMIN_PASSWORD_HASH secret. Sessions are random tokens; D1 stores their SHA-256 only.
+// Admin authentication: one shared password, kept in a Cloudflare secret — either
+// ADMIN_PASSWORD (plain text, simplest to set in the dashboard) or ADMIN_PASSWORD_HASH
+// (PBKDF2, from `npm run hash-password`). Sessions are random tokens; D1 stores their SHA-256 only.
 import { HttpError, clientIp } from './http.js';
 import { b64urlEncode, b64Decode, safeEqual, sha256Hex, nowIso } from './util.js';
 
@@ -28,6 +29,16 @@ export async function verifyPassword(password, stored) {
   if (!Number.isInteger(iterations) || iterations < 10000 || iterations > ITERATIONS) return false;
   const hash = await pbkdf2(String(password), b64Decode(parts[2]), iterations);
   return safeEqual(b64urlEncode(hash), parts[3]);
+}
+
+/** Check against whichever secret is configured. A non-PBKDF2 value in
+ *  ADMIN_PASSWORD_HASH is treated as the plain password. */
+export async function checkPassword(password, env) {
+  const hash = String(env.ADMIN_PASSWORD_HASH || '');
+  if (hash.startsWith('pbkdf2-sha256$')) return verifyPassword(password, hash);
+  const plain = String(env.ADMIN_PASSWORD || hash);
+  if (!plain) return false;
+  return safeEqual(await sha256Hex(String(password ?? '')), await sha256Hex(plain));
 }
 
 function readCookie(request, name) {
@@ -63,13 +74,13 @@ export async function peek(db, bucket, windowSec) {
 }
 
 export async function login(request, env, body) {
-  if (!env.ADMIN_PASSWORD_HASH) throw new HttpError(503, 'not_configured', '管理密碼尚未設定');
+  if (!env.ADMIN_PASSWORD && !env.ADMIN_PASSWORD_HASH) throw new HttpError(503, 'not_configured', '管理密碼尚未設定');
   const ip = clientIp(request);
   const windowSec = LOGIN_WINDOW_MIN * 60;
   if (await peek(env.DB, `loginfail:${ip}`, windowSec) >= LOGIN_MAX_FAILS) {
     throw new HttpError(429, 'locked', `嘗試次數過多，請 ${LOGIN_WINDOW_MIN} 分鐘後再試`);
   }
-  const ok = await verifyPassword(body && body.password, env.ADMIN_PASSWORD_HASH);
+  const ok = await checkPassword(body && body.password, env);
   if (!ok) {
     await hit(env.DB, `loginfail:${ip}`, windowSec);
     throw new HttpError(401, 'bad_password', '密碼不正確');
