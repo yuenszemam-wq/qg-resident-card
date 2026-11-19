@@ -100,6 +100,12 @@ def verify(browser):
         expect(page.locator(f"{ed} [data-m=photo]")).to_be_visible()
         page.locator(f"{ed} [data-m=text]").click()
         expect(page.locator(ed + "Font")).to_be_visible()
+        # Font picker shows every font as a styled preview row.
+        page.locator(ed + "Font").click()
+        expect(page.locator(ed + "FontSheet")).to_be_visible()
+        assert page.locator(f"{ed}FontSheet .qg-fs-item").count() >= 2
+        page.locator(ed + "FontDone").click()
+        expect(page.locator(ed + "FontSheet")).to_be_hidden()
         # Compact text controls: both reset buttons fit on one phone screen.
         foot = page.locator(f"{ed} [data-pane=text] .ed-foot").bounding_box()
         assert foot and foot["y"] + foot["height"] <= 844, foot

@@ -980,7 +980,10 @@ window.qgCards.promo = {
   },
   text:{
     items:ADJ_ITEMS, fields:ADJ_FIELDS,
-    fonts:k=>fontList(k).map(f=>({id:f.id, label:f.label})),
+    fonts:k=>fontList(k).map(f=>({id:f.id, label:f.label, fam:f.fam, w:f.w, gcss:f.css,
+      bold:typeof f.bold==='object' ? (f.bold[k]||0) : (f.bold||0),
+      fallback:k==='name' ? NAME_FALLBACK : FONT_HAND})),
+    sample:k=>state[k],
     font:k=>state.font[k],
     setFont(k,id){ state.font[k] = id; ensureFonts().then(still); },
     get:(k,f)=>state.adj[k][f],
@@ -1349,7 +1352,7 @@ function syncZoom(){ window.qgEditor?.sync('weekly'); }
 
 // ---------- 「預覽及調整」：共用編輯器（ui/editor.js） ----------
 // 文字微調（日期）
-const FONT_OPTS = FONTS.map(f=>({id:f.id, label:f.label.replace('（預設）','')+(f.id===FONT_DEF?'（預設）':'')}));
+const FONT_OPTS = FONTS.map(f=>({id:f.id, label:f.label.replace('（預設）','')+(f.id===FONT_DEF?'（預設）':''), fam:f.fam, w:f.w, fallback:DATE_FALLBACK}));
 function setAdj(f, v){ state.adj[f] = clamp(Math.round(v), ...ADJ_RANGE[f]); }
 
 function updateSum(){ window.qgEditor?.sync('weekly'); }
@@ -1583,7 +1586,7 @@ window.qgCards.weekly = {
   },
   text:{
     items:[['date','日期']], fields:ADJ,
-    fonts:()=>FONT_OPTS, font:()=>state.font,
+    fonts:()=>FONT_OPTS, font:()=>state.font, sample:()=>state.text,
     setFont(k,id){ state.font = id; layout = null; ensureFont().then(()=>{ layout = null; still(); }); },
     get:(k,f)=>state.adj[f], set:(k,f,v)=>setAdj(f,v),
     reset(){ state.adj = blankAdj(); state.font = FONT_DEF; layout = null; ensureFont().then(()=>{ layout = null; still(); }); },
