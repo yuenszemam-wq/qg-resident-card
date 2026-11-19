@@ -1,0 +1,16 @@
+# Only the makers, admin page and their files are public static assets.
+.git
+.github
+.wrangler
+node_modules
+worker
+migrations
+tests
+scripts
+docs
+wrangler.jsonc
+package.json
+package-lock.json
+.assetsignore
+.dev.vars*
+/README.md

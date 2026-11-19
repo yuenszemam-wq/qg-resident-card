@@ -1,0 +1,28 @@
+{
+  // Queen's Garden 宣傳製作中心：靜態製作器（assets）＋ /api、/media Worker
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "qg-resident-card",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none",
+    "run_worker_first": ["/api/*", "/media/*"]
+  },
+  "vars": {
+    "SHEET_ID": "1LOLGOskQi2lpahGrCdcpo8E4b3d2s78pA6eairtpHb4"
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "qg-resident-card-db", "database_id": "e6156c2f-ec9f-4142-8ca4-a79147deebe3", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "qg-resident-card-media" }
+  ],
+  "observability": { "enabled": true, "head_sampling_rate": 0.2 }
+  // Secrets (set in the dashboard, never in this file):
+  //   ADMIN_PASSWORD_HASH          pbkdf2-sha256$100000$<salt>$<hash>  (npm run hash-password)
+  //   GOOGLE_SERVICE_ACCOUNT_JSON  service-account key JSON with read access to the sheet
+}

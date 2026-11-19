@@ -86,6 +86,14 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS audit_at ON audit_log(at);
 
+CREATE TABLE IF NOT EXISTS admin_sessions (
+  token_hash TEXT PRIMARY KEY,                   -- SHA-256 of the cookie token; raw token never stored
+  actor      TEXT NOT NULL,                      -- display name entered at login
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  ip         TEXT
+);
+
 CREATE TABLE IF NOT EXISTS rate_limit (
   bucket     TEXT PRIMARY KEY,                   -- actor:minute
   count      INTEGER NOT NULL,
