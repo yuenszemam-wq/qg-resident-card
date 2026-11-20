@@ -962,18 +962,22 @@ function tx(mode, fn){
 }
 const histAll = () => tx('readonly', s => s.getAll()).then(a => (a||[]).sort((x,y) => y.ts-x.ts));
 const toBlob = (c, type, q) => new Promise(r => c.toBlob(r, type, q));
+// Some WebKit builds cannot persist Blob objects in IndexedDB. Store JPEG
+// bytes instead; keep reading legacy Blob records without upgrading/deleting DBs.
+const historyBlob = value => value instanceof Blob ? value : new Blob([value], {type:'image/jpeg'});
 async function saveHistory(){
   try{
     const list = active();
     for(const r of list) if(r.photo && !r.photoBlob) r.photoBlob = await toBlob(r.photo, 'image/jpeg', 0.9);
     const tc = mkCanvas(240, 320), tcc = tc.getContext('2d');
     tcc.imageSmoothingQuality = 'high'; tcc.drawImage(cv, 0, 0, tc.width, tc.height);
-    const thumb = await toBlob(tc, 'image/jpeg', 0.82);
+    const thumb = await (await toBlob(tc, 'image/jpeg', 0.82)).arrayBuffer();
+    const photos = await Promise.all(list.map(r => r.photoBlob ? historyBlob(r.photoBlob).arrayBuffer() : null));
     // 同一個日期只保留最新一次
     const entry = {id:state.date, ts:Date.now(), date:state.date, start:state.start, end:state.end, text:dateText(),
       count:state.count, sizeMode:state.sizeMode, uniS:state.uniS, font:{...state.font},
       adj:{date:{...state.adj.date}, time:{...state.adj.time}},
-      res:list.map(r => ({name:r.name, cat:r.cat, photo:r.photoBlob, zoom:r.zoom, px:r.px, py:r.py,
+      res:list.map((r, i) => ({name:r.name, cat:r.cat, photo:photos[i], zoom:r.zoom, px:r.px, py:r.py,
         pos:r.pos ? {...r.pos} : null, s:r.s, adj:{...r.adj}})),
       thumb};
     await tx('readwrite', s => s.put(entry));
@@ -994,7 +998,7 @@ async function showHistory(){
     const wrap = document.createElement('div'); wrap.className = 'wk-hi'; wrap.dataset.id = hh.id;
     const go = document.createElement('button'); go.type = 'button'; go.className = 'go'; go.dataset.i = i;
     go.setAttribute('aria-label', '載入 '+hh.text);
-    if(hh.thumb){ const u = URL.createObjectURL(hh.thumb); thumbUrls.push(u); const im = document.createElement('img'); im.src = u; im.alt = ''; go.append(im); }
+    if(hh.thumb){ const u = URL.createObjectURL(historyBlob(hh.thumb)); thumbUrls.push(u); const im = document.createElement('img'); im.src = u; im.alt = ''; go.append(im); }
     const d = new Date(hh.ts);
     const t1 = document.createElement('span'); t1.className = 'd'; t1.textContent = (hh.text||'').replace(/ \d{4}/, '') + '｜' + hh.count + '人';
     const t2 = document.createElement('span'); t2.className = 'w'; t2.textContent = `${d.getDate()}/${d.getMonth()+1} ${pad(d.getHours())}:${pad(d.getMinutes())} 儲存`;
@@ -1025,7 +1029,8 @@ $('dyHist').addEventListener('click', async e => {
     for(const x of hh.res||[]){
       const r = blankRes();
       r.name = x.name||''; r.cat = catOf(x.cat).id;
-      r.photo = x.photo ? await blobToCanvas(x.photo) : null; r.photoBlob = x.photo || null;
+      r.photoBlob = x.photo ? historyBlob(x.photo) : null;
+      r.photo = r.photoBlob ? await blobToCanvas(r.photoBlob) : null;
       r.zoom = x.zoom||1; r.px = x.px||0; r.py = x.py||0;
       r.pos = x.pos && Number.isFinite(x.pos.x) ? {x:x.pos.x, y:x.pos.y} : null;
       r.s = Number.isFinite(x.s) ? x.s : 1; r.adj = {...blankAdj(), ...(x.adj||{})};

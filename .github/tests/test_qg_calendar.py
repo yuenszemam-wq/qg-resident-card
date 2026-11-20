@@ -186,6 +186,22 @@ def verify(browser):
     assert struct.unpack(">II", daily_bytes[16:24]) == (1012, 1350)
     expect(page.locator("#qg-progress-daily progress")).to_have_js_property("value", 100)
     expect(page.locator("#dyHist .wk-hi")).to_have_count(1)
+    stored = page.evaluate("""() => new Promise((resolve, reject) => {
+      const open = indexedDB.open('qg-daily', 1);
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result;
+        const tx = db.transaction('hist', 'readonly');
+        const request = tx.objectStore('hist').getAll();
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result.map(row => ({
+          thumbnailBytes: row.thumb instanceof ArrayBuffer && row.thumb.byteLength > 0,
+          photoBytes: row.res.every(r => r.photo instanceof ArrayBuffer && r.photo.byteLength > 0)
+        })));
+        tx.oncomplete = () => db.close();
+      };
+    })""")
+    assert stored == [{"thumbnailBytes": True, "photoBytes": True}], stored
     expect(page.locator("#dyHist .wk-hi .d")).to_contain_text("3人")
     page.once("dialog", lambda d: d.accept())
     page.locator("#dyList .dy-res[data-i='1'] .dy-del").click()
