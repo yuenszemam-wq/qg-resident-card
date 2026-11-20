@@ -156,6 +156,14 @@ def verify(browser):
     expect(page.locator("#dyList .dy-res")).to_have_count(2)
     page.locator("#dyCountSeg [data-n='3']").click()
     expect(page.locator("#dyList .dy-res")).to_have_count(3)
+    # Finishing an asynchronous photo load must not detach a focused name input.
+    assert page.evaluate("""async () => {
+      const input = document.querySelector('#dyList .dy-res input[type=text]');
+      input.focus();
+      const photo = await (await fetch('calendar/icon.png')).blob();
+      await qgDaily.loadPhoto(qgDaily.state.res[0], photo);
+      return input.isConnected && document.activeElement === input;
+    }""")
     for i, name in enumerate(["飯團", "Sumika", "雪織"]):
         row = page.locator(f"#dyList .dy-res[data-i='{i}']")
         row.locator("input[type=file]").set_input_files(ROOT / "calendar/icon.png")
@@ -186,6 +194,22 @@ def verify(browser):
     assert struct.unpack(">II", daily_bytes[16:24]) == (1012, 1350)
     expect(page.locator("#qg-progress-daily progress")).to_have_js_property("value", 100)
     expect(page.locator("#dyHist .wk-hi")).to_have_count(1)
+    stored = page.evaluate("""() => new Promise((resolve, reject) => {
+      const open = indexedDB.open('qg-daily', 1);
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result;
+        const tx = db.transaction('hist', 'readonly');
+        const request = tx.objectStore('hist').getAll();
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result.map(row => ({
+          thumbnailBytes: row.thumb instanceof ArrayBuffer && row.thumb.byteLength > 0,
+          photoBytes: row.res.every(r => r.photo instanceof ArrayBuffer && r.photo.byteLength > 0)
+        })));
+        tx.oncomplete = () => db.close();
+      };
+    })""")
+    assert stored == [{"thumbnailBytes": True, "photoBytes": True}], stored
     expect(page.locator("#dyHist .wk-hi .d")).to_contain_text("3人")
     page.once("dialog", lambda d: d.accept())
     page.locator("#dyList .dy-res[data-i='1'] .dy-del").click()

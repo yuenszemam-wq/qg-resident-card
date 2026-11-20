@@ -1,5 +1,6 @@
 name: Calendar and resident card regression
 on:
+  workflow_call:
   pull_request:
     paths:
       - 'index.html'

@@ -81,6 +81,8 @@
 
 ## 部署
 
+雙帳戶搬遷正在進行，尚未切換；帳戶、備份驗證、隔離設定、自動部署啟用條件及回滾限制見 [搬遷紀錄](docs/cloudflare-migration.md)。
+
 `main` 已連接 Cloudflare Workers Builds。合併後可在 `qg-resident-card` 的 Builds 核對 commit，再在 Deployments 確認正式流量。[開啟 QG 月曆](https://qg-resident-card.yuenszemam.workers.dev/#calendar)
 
 ## 備註

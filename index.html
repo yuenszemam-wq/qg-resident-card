@@ -419,6 +419,7 @@ const $ = id => document.getElementById(id);
 
 // ---------- 圖層 ----------
 const img = {};
+let promoAssetsReady = false;
 function loadImgRaw(src){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=src; }); }
 // 管理後台可替換素材：有已發佈的替換圖就用替換圖，載入失敗自動退回原圖
 function loadImg(src, key){
@@ -659,6 +660,8 @@ function render(t, final=false, noBg=false){
   renderCard(t, final, noBg);
 }
 function renderCard(t, final, noBg){
+  // Live admin presets can request a redraw before the image promises settle.
+  if(!promoAssetsReady) return;
   if(final) t = 99;
   ctx.setTransform(1,0,0,1,0,0);
   ctx.globalAlpha = 1;
@@ -1098,6 +1101,7 @@ function fitLayer(k, im){
 }
 Promise.all(Object.keys(A).map(k=>loadImg(A[k].src,'promo/'+k).then(i=>img[k]=fitLayer(k,i)))).then(async ()=>{
   ['bow','crown','pearl'].forEach(k=>blurImg[k]=makeBlur(img[k],14));
+  promoAssetsReady = true;
   render(0,true);
   await ensureFonts();
   render(0,true);

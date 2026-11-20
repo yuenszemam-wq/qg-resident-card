@@ -1,5 +1,6 @@
 name: Worker API and admin end-to-end
 on:
+  workflow_call:
   pull_request:
     paths:
       - 'worker/**'
