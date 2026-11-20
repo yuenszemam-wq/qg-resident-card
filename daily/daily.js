@@ -429,7 +429,14 @@ async function loadPhoto(r, file){
   try{
     r.photo = await blobToCanvas(file); r.photoBlob = null;
     r.zoom = 1; r.px = 0; r.py = 0;
-    say(''); still(); renderList(); ed.sync();
+    // Decoding can finish while someone is typing. Preserve the live inputs.
+    const i = state.res.indexOf(r);
+    const thumb = listBox.querySelector(`.dy-res[data-i="${i}"] .dy-ph`);
+    if(thumb){
+      thumb.querySelectorAll('canvas, span').forEach(el => el.remove());
+      thumb.prepend(photoThumb(r));
+    }
+    say(''); still(); summary(); ed.sync();
   }catch(err){ say('相片讀取失敗，請換一張再試'); }
 }
 
@@ -456,6 +463,12 @@ function removeAt(i){
   const n = state.count - 1;
   setCount(n, `已刪除居民，版面已按 ${n} 人重新排列`);
 }
+function photoThumb(r){
+  const c = mkCanvas(96, 96), x = c.getContext('2d');
+  const s = Math.max(96/r.photo.width, 96/r.photo.height);
+  x.drawImage(r.photo, (96-r.photo.width*s)/2, (96-r.photo.height*s)/2, r.photo.width*s, r.photo.height*s);
+  return c;
+}
 function renderList(){
   const seg = $('dyCountSeg');
   seg.querySelectorAll('button').forEach(b => { const on = +b.dataset.n === state.count; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
@@ -466,8 +479,7 @@ function renderList(){
     const row = document.createElement('div'); row.className = 'dy-res'; row.dataset.i = i;
     const thumb = document.createElement('label'); thumb.className = 'dy-ph';
     thumb.setAttribute('aria-label', `居民 ${i+1} 相片`);
-    if(r.photo){ const c = mkCanvas(96, 96), x = c.getContext('2d'); const s = Math.max(96/r.photo.width, 96/r.photo.height);
-      x.drawImage(r.photo, (96-r.photo.width*s)/2, (96-r.photo.height*s)/2, r.photo.width*s, r.photo.height*s); thumb.append(c); }
+    if(r.photo) thumb.append(photoThumb(r));
     else thumb.append(Object.assign(document.createElement('span'), {textContent:'📷'}));
     const file = document.createElement('input'); file.type = 'file'; file.accept = 'image/*'; file.className = 'dy-file';
     file.onchange = () => { const f = file.files && file.files[0]; file.value = ''; if(f) loadPhoto(r, f); };

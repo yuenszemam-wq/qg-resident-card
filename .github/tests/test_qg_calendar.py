@@ -156,6 +156,14 @@ def verify(browser):
     expect(page.locator("#dyList .dy-res")).to_have_count(2)
     page.locator("#dyCountSeg [data-n='3']").click()
     expect(page.locator("#dyList .dy-res")).to_have_count(3)
+    # Finishing an asynchronous photo load must not detach a focused name input.
+    assert page.evaluate("""async () => {
+      const input = document.querySelector('#dyList .dy-res input[type=text]');
+      input.focus();
+      const photo = await (await fetch('calendar/icon.png')).blob();
+      await qgDaily.loadPhoto(qgDaily.state.res[0], photo);
+      return input.isConnected && document.activeElement === input;
+    }""")
     for i, name in enumerate(["飯團", "Sumika", "雪織"]):
         row = page.locator(f"#dyList .dy-res[data-i='{i}']")
         row.locator("input[type=file]").set_input_files(ROOT / "calendar/icon.png")
