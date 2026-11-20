@@ -8,12 +8,15 @@ import { defaultConfig, validateConfig, SCHEMA_VERSION, ASSET_SLOTS, PAGES, COPY
 import { ulid, nowIso, sha256Hex, CATEGORIES } from './lib/util.js';
 import { clientIp } from './lib/http.js';
 import { driveConfig, listPhotos, photoThumb, photoContent, isDriveId } from './lib/drive.js';
+import { requireLink, shiftApi, linkConfigured, LINK_PURPOSES, KIND_TO_CATEGORY } from './lib/link.js';
+import { normIg } from './lib/util.js';
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
       if (url.pathname.startsWith('/media/')) return await serveMedia(request, env, url);
+      if (url.pathname.startsWith('/api/link/')) return await linkApi(request, env, url);
       if (url.pathname.startsWith('/api/public/')) return await publicApi(request, env, url, ctx);
       if (url.pathname.startsWith('/api/admin/')) return await adminApi(request, env, url);
       if (url.pathname.startsWith('/api/')) throw new HttpError(404, 'not_found', '找不到');
@@ -28,11 +31,18 @@ export default {
 async function serveMedia(request, env, url) {
   const m = url.pathname.match(/^\/media\/([0-9A-Z]{26})$/);
   if (!m || (request.method !== 'GET' && request.method !== 'HEAD')) throw new HttpError(404, 'not_found', '找不到');
-  const obj = await env.MEDIA.get(`a/${m[1]}`);
+  // 報更系統上傳的居民相片／收據（link.*）不公開，只可經管理 API 或報更系統讀取
+  const meta = await env.DB.prepare('SELECT purpose FROM assets WHERE asset_id = ?').bind(m[1]).first();
+  if (!meta || String(meta.purpose || '').startsWith('link.')) throw new HttpError(404, 'not_found', '找不到');
+  return mediaResponse(request, env, m[1], 'public, max-age=31536000, immutable');
+}
+
+async function mediaResponse(request, env, id, cache) {
+  const obj = await env.MEDIA.get(`a/${id}`);
   if (!obj) throw new HttpError(404, 'not_found', '找不到');
   const headers = new Headers({
     'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
-    'Cache-Control': 'public, max-age=31536000, immutable',
+    'Cache-Control': cache,
     'X-Content-Type-Options': 'nosniff',
     'Content-Security-Policy': "default-src 'none'",
     ETag: obj.httpEtag,
@@ -130,6 +140,52 @@ async function publicApi(request, env, url, ctx) {
       200, { 'Cache-Control': 'no-cache' });
   }
   throw new HttpError(404, 'not_found', '找不到');
+}
+
+// ---------------------------------------------------------------- link API（報更系統 → 本系統）
+async function linkApi(request, env, url) {
+  requireLink(request, env);
+  const method = request.method.toUpperCase();
+  const path = url.pathname.slice('/api/link/'.length);
+  let m;
+  if (path === 'assets' && method === 'POST') {
+    const purpose = url.searchParams.get('purpose') || '';
+    if (!LINK_PURPOSES.includes(purpose)) throw new HttpError(422, 'bad_purpose', '用途無效');
+    const owner = String(url.searchParams.get('owner') || '').slice(0, 80);
+    const info = inspectImage(await readBytes(request, LIMITS.photo), 'photo');
+    const id = await putAsset(env, { kind: 'photo', ownerId: owner, purpose: `link.${purpose}`, ...info, actor: 'shift-system' });
+    return json({ assetId: id, mime: info.mime, width: info.width, height: info.height, bytes: info.bytes.length }, 201);
+  }
+  if ((m = path.match(/^assets\/([0-9A-Z]{26})$/))) {
+    const row = await env.DB.prepare('SELECT asset_id, purpose FROM assets WHERE asset_id = ?').bind(m[1]).first();
+    if (!row || !String(row.purpose).startsWith('link.')) throw new HttpError(404, 'not_found', '找不到');
+    if (method === 'GET') return mediaResponse(request, env, m[1], 'private, max-age=86400');
+    if (method === 'DELETE') {
+      // 居民刪除自己的相片：R2 檔案及記錄一併刪除
+      await env.MEDIA.delete(`a/${m[1]}`);
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM assets WHERE asset_id = ?').bind(m[1]),
+        env.DB.prepare('DELETE FROM drive_photos WHERE file_id = ?').bind(m[1]),
+      ]).catch(() => env.DB.prepare('DELETE FROM assets WHERE asset_id = ?').bind(m[1]).run());
+      return json({ ok: true });
+    }
+  }
+  throw new HttpError(404, 'not_found', '找不到');
+}
+
+/** 排更資料（管理員）：加上相片網址及本系統的預設照片 */
+async function rosterForAdmin(env, url) {
+  const from = url.searchParams.get('from') || '', to = url.searchParams.get('to') || '';
+  const data = await shiftApi(env, `/api/link/roster?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+  // 居民自行上傳的照片優先；沒有就用管理中心設定的居民預設照片（按 IG 配對）
+  const rows = (await env.DB.prepare(`SELECT ig_norm, photo_asset_id, default_category FROM residents WHERE ig_norm != '' AND photo_asset_id IS NOT NULL`).all()).results || [];
+  const byIg = new Map(rows.map(r => [r.ig_norm, r]));
+  data.assignments = (data.assignments || []).map(a => {
+    const card = byIg.get(normIg(a.ig));
+    const photo = a.photoAsset ? `/api/admin/roster/photo/${a.photoAsset}` : card && card.photo_asset_id ? `/media/${card.photo_asset_id}` : null;
+    return { ...a, category: KIND_TO_CATEGORY[a.kind] || 'regular', photo, photoSource: a.photoAsset ? (a.promoAsset ? 'promo' : 'resident') : photo ? 'admin' : null };
+  });
+  return data;
 }
 
 // ---------------------------------------------------------------- admin API
@@ -385,8 +441,20 @@ async function adminApi(request, env, url) {
   // ---- Google Drive photos (weekly schedule picker); archive state lives in D1 only
   if (path === 'drive/photos' && method === 'GET') {
     const cfg = driveConfig(env);
-    if (!cfg.sa || !cfg.folder) return json({ configured: false, serviceAccount: cfg.email, photos: [] });
-    const { photos } = await listPhotos(env);
+    // 居民在報更系統「居民交相」上傳的當值相片（存於本系統 R2）
+    let uploads = [];
+    if (linkConfigured(env)) {
+      try {
+        const d = await shiftApi(env, '/api/link/duty-photos');
+        uploads = (d.photos || []).filter(p => /^[0-9A-Z]{26}$/.test(p.assetId)).map(p => ({
+          id: p.assetId, name: `${p.name || '居民'} 交相`, mime: 'image/jpeg', size: null, createdTime: p.createdAt, source: 'upload', resident: p.name, ig: p.ig,
+        }));
+      } catch { uploads = []; }
+    }
+    if (!cfg.sa || !cfg.folder) {
+      if (!uploads.length) return json({ configured: false, serviceAccount: cfg.email, photos: [] });
+    }
+    const photos = [...uploads, ...((cfg.sa && cfg.folder) ? (await listPhotos(env)).photos : [])];
     await ensureDrive(env.DB);
     const rows = (await env.DB.prepare('SELECT * FROM drive_photos').all()).results || [];
     const st = new Map(rows.map(r => [r.file_id, r]));
@@ -400,6 +468,10 @@ async function adminApi(request, env, url) {
     });
   }
   if ((m = path.match(/^drive\/photos\/([A-Za-z0-9_-]{10,200})\/(thumb|content)$/)) && method === 'GET') {
+    if (/^[0-9A-Z]{26}$/.test(m[1])) {
+      const row = await env.DB.prepare('SELECT purpose FROM assets WHERE asset_id = ?').bind(m[1]).first();
+      if (row && row.purpose === 'link.duty') return mediaResponse(request, env, m[1], 'private, max-age=86400');
+    }
     return m[2] === 'thumb' ? photoThumb(env, m[1]) : photoContent(env, m[1]);
   }
   if ((m = path.match(/^drive\/photos\/([A-Za-z0-9_-]{10,200})\/(archive|used)$/)) && method === 'POST') {
@@ -429,6 +501,21 @@ async function adminApi(request, env, url) {
     await audit(env, actor, auto ? 'drive.used.archive' : 'drive.used', m[1], {});
     const row = await env.DB.prepare('SELECT archived, use_count FROM drive_photos WHERE file_id = ?').bind(m[1]).first();
     return json({ ok: true, archived: !!row.archived, useCount: row.use_count });
+  }
+
+  // ---- 排更系統連結（每日／每週更表、月曆文案、限定／影子選擇）
+  if (path === 'roster' && method === 'GET') return json(await rosterForAdmin(env, url));
+  if (path === 'roster/promo' && method === 'POST') {
+    const body = await readJson(request, 4096);
+    const r = await shiftApi(env, '/api/link/promo', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignmentId: Number(body.assignmentId), promoted: body.promoted === true, actor }) });
+    await audit(env, actor, body.promoted === true ? 'roster.promoted' : 'roster.unpromoted', String(body.assignmentId), {});
+    return json(r);
+  }
+  if ((m = path.match(/^roster\/photo\/([0-9A-Z]{26})$/)) && method === 'GET') {
+    const row = await env.DB.prepare('SELECT purpose FROM assets WHERE asset_id = ?').bind(m[1]).first();
+    if (!row || !String(row.purpose).startsWith('link.') || row.purpose === 'link.receipt') throw new HttpError(404, 'not_found', '找不到相片');
+    return mediaResponse(request, env, m[1], 'private, max-age=86400');
   }
 
   if (path === 'audit' && method === 'GET') {
