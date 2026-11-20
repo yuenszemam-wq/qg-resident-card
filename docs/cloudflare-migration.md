@@ -17,9 +17,9 @@ GitHub 是唯一程式碼來源。2026-11-20 核對的帳戶如下：
 - 新舊備份的 11 張表結構、筆數及內容 SHA-256 全部一致。首次快照包含 59 位居民、3 個設定版本及 1 筆素材。
 - 原 R2 `qg-resident-card-media` 的 1 個物件（404,226 bytes）已備份並複製至 QG 全新 `qg-resident-card-prod-media-20261120`；下載核對 SHA-256／MD5 與來源一致，key、Content-Type、自訂 metadata 及 storage class 保留。物件建立時間會是複製時間。
 - 個人帳戶建立了隔離的 `qg-resident-card-dev-media`。
-- 受保護候選站已部署：https://qg-resident-card-prod.queenxsgarden.workers.dev/ 。部署程式碼 commit `8abb23deb39e71610eccb1493aef4f209347965f`，Worker version `32870e60-a8b2-4956-aebb-0ff6112c2e70`。未帶驗證金鑰的首頁、管理頁、API、圖片均回覆 503；帶金鑰的首頁、管理頁、設定 API 及圖片讀取通過，圖片 SHA-256 與 D1 素材記錄一致。
+- 受保護候選站已部署：https://qg-resident-card-prod.queenxsgarden.workers.dev/ 。部署程式碼 commit `8862ee49ab73f8f4072497e8786a19e60eacfd3c`，Worker version `f08acf8a-07dd-4de9-b476-5bf4c12a7f3f`。未帶驗證金鑰的首頁、管理頁、API、圖片均回覆 503；帶金鑰的首頁、管理頁、設定 API 及圖片讀取通過，圖片 SHA-256 與 D1 素材記錄一致。
 - GitHub `develop` 已建立；`production` 僅允許 `main` 部署，`development` 僅允許 `develop` 部署。QG 部署 Token 已存入 production environment secret，權限只有該 QG 帳戶的 Workers Scripts Write、D1 Metadata Read、R2 Storage Metadata Read，且已實際成功部署。
-- [PR #26](https://github.com/yuenszemam-wq/qg-resident-card/pull/26) 的 GitHub Actions 全部測試通過：31 項單元測試、Chromium／WebKit 管理後台與製作器回歸。修復了預覽素材載入競態及 WebKit 每日更表 Blob 記錄儲存失敗；保留舊記錄相容性。Actions 的 deploy 工作刻意保持關閉。
+- [PR #26](https://github.com/yuenszemam-wq/qg-resident-card/pull/26) 的 GitHub Actions 全部測試通過：31 項單元測試、Chromium／WebKit 管理後台與製作器回歸。修復了預覽素材載入競態、WebKit 每日更表 Blob 記錄儲存失敗及相片解碼完成時重建輸入欄的競態；保留舊記錄相容性。Actions 的 deploy 工作刻意保持關閉。
 - 原正式站仍是 https://qg-resident-card.yuenszemam.workers.dev/ ，未修改它的路由、資料或 Secrets。
 
 本文件不包含居民、圖片、密碼、Token 或 SQL。備份位置由本機交付報告提供，不進 GitHub／Actions artifacts。
