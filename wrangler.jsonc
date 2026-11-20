@@ -1,38 +1,13 @@
 {
-  // Queen's Garden 宣傳製作中心：靜態製作器（assets）＋ /api、/media Worker
+  // 舊網址轉送入口：宣傳製作中心已併入 QG 異世界居民報更系統（qg-shift-system 的 /card/）。
+  // 原 D1（qg-resident-card-db）及 R2（qg-resident-card-media）不再綁定，保留作備份，未刪除。
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "qg-resident-card",
-  "main": "worker/index.js",
+  "main": "worker/gateway.js",
   "compatibility_date": "2026-10-15",
-  // 呼叫另一個 workers.dev 網址（報更系統）時經公開網絡，避免同一 zone 限制
+  // 轉送到另一個 workers.dev 網址時經公開網絡
   "compatibility_flags": ["global_fetch_strictly_public"],
   "workers_dev": true,
-  // 保留在 Cloudflare 後台設定的變數，部署時不會被清走
   "keep_vars": true,
-  "assets": {
-    "directory": ".",
-    "binding": "ASSETS",
-    "html_handling": "auto-trailing-slash",
-    "not_found_handling": "none",
-    "run_worker_first": ["/api/*", "/media/*"]
-  },
-  "vars": {
-    "SHEET_ID": "1LOLGOskQi2lpahGrCdcpo8E4b3d2s78pA6eairtpHb4",
-    // 每週更表相片來源（唯讀）：資料夾需分享給服務帳戶電郵（檢視者）
-    "DRIVE_FOLDER_ID": "1SE2spJD5yj_WNKBBKJCzXo6e3eSjSvn19h2Ibb6X_FTk-LgVpIG7pso141ZG1jN1oEbRXITw",
-    // QG 異世界居民報更系統（排更、居民相片）；共用密鑰 QG_LINK_SECRET 設於 Cloudflare Secrets
-    "SHIFT_SYSTEM_URL": "https://qg-shift-system.queenxsgarden.workers.dev"
-  },
-  "d1_databases": [
-    { "binding": "DB", "database_name": "qg-resident-card-db", "database_id": "e6156c2f-ec9f-4142-8ca4-a79147deebe3", "migrations_dir": "migrations" }
-  ],
-  "r2_buckets": [
-    { "binding": "MEDIA", "bucket_name": "qg-resident-card-media" }
-  ],
   "observability": { "enabled": true, "head_sampling_rate": 0.2 }
-  // Secrets (set in the dashboard, never in this file):
-  //   ADMIN_PASSWORD               管理密碼原文（最簡單）；或
-  //   ADMIN_PASSWORD_HASH          pbkdf2-sha256$100000$<salt>$<hash>  (npm run hash-password)
-  //   GOOGLE_SERVICE_ACCOUNT_JSON  service-account key JSON with read access to the sheet and the Drive folder
-  //   QG_LINK_SECRET               與報更系統共用的連結密鑰（兩邊相同，最少 32 字元）
 }
