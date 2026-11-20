@@ -5,7 +5,7 @@ import { login, logout, requireAdmin, audit, sessionCookie, hit } from './lib/au
 import { maybeSync, syncState, publicResident } from './lib/roster.js';
 import { inspectImage, inspectFont, LIMITS, EXT } from './lib/media.js';
 import { defaultConfig, validateConfig, SCHEMA_VERSION, ASSET_SLOTS, PAGES, COPY_FIELDS, upgradeConfig } from './lib/config.js';
-import { ulid, nowIso, sha256Hex, CATEGORIES } from './lib/util.js';
+import { ulid, nowIso, sha256Hex, safeEqual, CATEGORIES } from './lib/util.js';
 import { clientIp } from './lib/http.js';
 import { driveConfig, listPhotos, photoThumb, photoContent, isDriveId } from './lib/drive.js';
 
@@ -13,6 +13,14 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
+      // Candidate deployments contain production data. Keep ALL paths private
+      // until backup, integration checks and the final write handoff are complete.
+      if (env.MIGRATION_LOCKED === 'true') {
+        const key = request.headers.get('x-qg-migration-key') || '';
+        if (!key || !env.MIGRATION_ACCESS_KEY || !safeEqual(await sha256Hex(key), await sha256Hex(env.MIGRATION_ACCESS_KEY))) {
+          return new Response('Migration verification in progress', { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '300' } });
+        }
+      }
       if (url.pathname.startsWith('/media/')) return await serveMedia(request, env, url);
       if (url.pathname.startsWith('/api/public/')) return await publicApi(request, env, url, ctx);
       if (url.pathname.startsWith('/api/admin/')) return await adminApi(request, env, url);

@@ -14,3 +14,23 @@ package-lock.json
 .assetsignore
 .dev.vars*
 /README.md
+# Never publish local credentials, exports, or deployment intermediates.
+.env*
+.deployment
+backups
+private-backups
+work
+outputs
+**/*.sql
+**/*.sqlite*
+**/*.db
+**/*.dump
+**/*.pem
+**/*.key
+**/*.log
+**/*.bundle
+**/*.zip
+.gitignore
+AGENTS.md
+wrangler*.json*
+deployment

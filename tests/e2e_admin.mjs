@@ -27,10 +27,21 @@ const browser = await browserType.launch();
 const context = await browser.newContext({ ...devices['iPhone 13'], ...(which === 'chromium' ? { isMobile: false, hasTouch: true } : {}) });
 const page = await context.newPage();
 const errors = [];
-page.on('pageerror', e => errors.push(e.message));
-page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|fonts\.g/.test(m.text())) errors.push(m.text()); });
+page.on('pageerror', e => { errors.push(e.message); console.error('[pageerror]', e.stack || e.message); });
+page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|fonts\.g/.test(m.text())) { errors.push(m.text()); console.error('[browser console]', m.text(), m.location()); } });
 page.on('dialog', d => d.accept(d.type() === 'prompt' ? 'E2E 測試發佈' : undefined));
 const step = s => console.log(`[${which}] ${s}`);
+
+// Admin presets and font callbacks may redraw while promo images are loading.
+step('promo redraw waits for image assets');
+let releaseAssets;
+const assetsGate = new Promise(resolve => { releaseAssets = resolve; });
+await page.route(BASE + '/promo/**', async route => { await assetsGate; await route.continue(); });
+await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+assert.equal(await page.evaluate(() => { still(); return promoAssetsReady; }), false);
+releaseAssets();
+await page.waitForFunction(() => promoAssetsReady);
+await page.unroute(BASE + '/promo/**');
 
 // ---------- admin ----------
 step('admin login');
