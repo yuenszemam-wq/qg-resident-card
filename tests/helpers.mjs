@@ -38,6 +38,7 @@ export function makeR2() {
       const v = store.get(key);
       return v ? { body: v.bytes, httpMetadata: { contentType: v.contentType }, httpEtag: '"x"' } : null;
     },
+    async delete(key) { store.delete(key); },
   };
 }
 

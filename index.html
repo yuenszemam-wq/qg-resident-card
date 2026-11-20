@@ -936,7 +936,8 @@ function promoText(s){
 }
 let promoCurrent = '';
 function setCopyMsg(m, cls){ const el=$('copyMsg'); el.textContent=m||''; el.className='copymsg'+(cls?' '+cls:''); }
-const PROMO_TITLES = {promo:'🔮 限定居民宣傳文案', shadow:'🌙 影子精靈宣傳文案', weekly:'👑 每週更表宣傳文案', daily:'✧ 每日更表宣傳文案'};
+const PROMO_TITLES = {promo:'🔮 限定居民宣傳文案', shadow:'🌙 影子精靈宣傳文案', weekly:'👑 每週更表宣傳文案', daily:'✧ 每日更表宣傳文案', calendar:'🕰️ 居民召喚月曆文案'};
+window.qgShowCopy = (page, text) => showCopy(page, PROMO_TITLES[page] || '宣傳文案', text);
 function openPromo(snap, customText, opts={}){
   const page = opts.page || (customText ? 'shadow' : 'promo');
   // 管理後台已發佈的文案模板（純文字代入）；未載入時用程式內建文案
@@ -944,7 +945,12 @@ function openPromo(snap, customText, opts={}){
   const tpl = window.qgPresets?.copyFor(page, snap);
   if(tpl){ if(!tpl.enabled) return; text = tpl.text; note = tpl.note || ''; }
   if(!text) return;
-  $('promoTitle').textContent = PROMO_TITLES[page];
+  showCopy(page, PROMO_TITLES[page], text, note);
+}
+// 顯示宣傳文案彈窗（排更連結 ui/roster-link.js 亦會使用）
+function showCopy(page, title, text, note=''){
+  $('promo').dataset.page = page;
+  $('promoTitle').textContent = title;
   promoCurrent = text;
   $('promoText').textContent = promoCurrent;
   window.qgWorkflow?.caption(page, $('promoTitle').textContent, promoCurrent);
@@ -1726,5 +1732,6 @@ window.qgCards.weekly = {
 <script src="ui/editor.js"></script>
 <script src="ui/workflow.js"></script>
 <script src="weekly/drive.js"></script>
+<script src="ui/roster-link.js"></script>
 </body>
 </html>

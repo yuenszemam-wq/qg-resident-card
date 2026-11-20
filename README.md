@@ -70,6 +70,15 @@
 - 資料：Cloudflare D1 `qg-resident-card-db`（居民 ID、照片配對、設定版本、日誌）、R2 `qg-resident-card-media`（照片、字體、素材）。製作記錄仍只存在各裝置的 IndexedDB。
 - 設計、Secrets 設定及測試方法見 `docs/phase5-plan.md`。
 
+## 連結報更系統（qg-shift-system）
+
+- 排更結果經報更系統的連結 API 讀取（需先在 `/admin/` 登入）；雙方以 Cloudflare Secret `QG_LINK_SECRET` 驗證，報更系統網址為 `wrangler.jsonc` 的 `SHIFT_SYSTEM_URL`。
+- 每日更表：選擇日期後自動整理當日當值居民（名字、IG、分類、相片），相片優先使用居民在報更系統上傳的宣傳照片，否則用管理中心設定的居民照片（按 IG 配對）。
+- 每週更表：「按排更產生每週文案」（《異世界居民出沒啟示錄》格式），下載圖片／影片後亦自動彈出；「選擇相片」同時列出居民在報更系統「居民交相」上傳的相片。
+- QG 月曆：按排更產生《居民召喚月曆》文案，可把排更活動日加入皇冠。
+- 限定宣傳／影子精靈：「從排更選擇」未宣傳的限定／影子，自動填入相片、名字、IG 及日期；下載後在文案視窗按「設為已宣傳」，清單便會隱藏。
+- `/api/link/assets`：報更系統上傳的檔案（用途 `link.*`）存於 R2，不經 `/media/` 公開，只可經管理 API 或報更系統讀取；居民刪除相片時一併刪除 R2 檔案。
+
 ## 部署
 
 `main` 已連接 Cloudflare Workers Builds。合併後可在 `qg-resident-card` 的 Builds 核對 commit，再在 Deployments 確認正式流量。[開啟 QG 月曆](https://qg-resident-card.yuenszemam.workers.dev/#calendar)
