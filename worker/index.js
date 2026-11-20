@@ -21,6 +21,11 @@ export default {
           return new Response('Migration verification in progress', { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '300' } });
         }
       }
+      // Final handoff: reject every admin operation (even reads can write
+      // sessions/rate limits), while public makers continue using cached data.
+      if (env.MIGRATION_READ_ONLY === 'true' && url.pathname.startsWith('/api/admin/')) {
+        return json({ error: 'migration_read_only', message: '資料交接中，暫停管理操作，請稍後再試' }, 503, { 'Retry-After': '60' });
+      }
       if (url.pathname.startsWith('/media/')) return await serveMedia(request, env, url);
       if (url.pathname.startsWith('/api/public/')) return await publicApi(request, env, url, ctx);
       if (url.pathname.startsWith('/api/admin/')) return await adminApi(request, env, url);
@@ -112,12 +117,14 @@ async function publicApi(request, env, url, ctx) {
   const path = url.pathname.slice('/api/public/'.length);
   if (path === 'residents') {
     let force = false;
-    if (url.searchParams.get('refresh') === '1') {
+    if (env.MIGRATION_READ_ONLY !== 'true' && url.searchParams.get('refresh') === '1') {
       // Manual refresh button: at most 6 per minute per visitor.
       force = (await hit(env.DB, `refresh:${clientIp(request)}`, 60)) <= 6;
     }
-    const result = await maybeSync(env, { force });
-    await ensureArchive(env.DB);
+    const result = env.MIGRATION_READ_ONLY === 'true'
+      ? { state: await syncState(env.DB) }
+      : await maybeSync(env, { force });
+    if (env.MIGRATION_READ_ONLY !== 'true') await ensureArchive(env.DB);
     // 已封存的居民不在公開選單出現（資料及照片保留）
     const rows = (await env.DB.prepare(`SELECT resident_id, sheet_name, ig, default_category, photo_asset_id, updated_at
       FROM residents WHERE sync_status IN ('active','manual')
